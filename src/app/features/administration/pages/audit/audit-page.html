@@ -1,0 +1,81 @@
+<div class="page-header">
+  <div>
+    <h1>Auditoría de accesos</h1>
+    <p class="page-header__subtitle">
+      Registro de las rutas consultadas por cada usuario y si el acceso fue permitido.
+    </p>
+  </div>
+</div>
+
+<ui-filter-bar class="mb" [showClear]="hasFilters()" (apply)="apply()" (clear)="clear()">
+  <ui-search-box
+    placeholder="Buscar por usuario, correo o ruta…"
+    [(value)]="search"
+    (search)="apply()"
+  />
+  <ui-form-field label="Módulo">
+    <ui-input [(ngModel)]="module" placeholder="Ej.: auth, finance" [maxlength]="50" />
+  </ui-form-field>
+  <ui-form-field label="Id de usuario">
+    <ui-input type="number" [min]="1" [(ngModel)]="userId" />
+  </ui-form-field>
+  <ui-form-field label="Resultado">
+    <ui-select [options]="allowedOptions" [placeholder]="null" [(ngModel)]="allowed" />
+  </ui-form-field>
+  <ui-form-field
+    label="Rango de fechas"
+    [error]="rangeError() ? 'La fecha inicial no puede ser posterior a la final.' : null"
+  >
+    <ui-date-range [(ngModel)]="range" />
+  </ui-form-field>
+</ui-filter-bar>
+
+<section class="ui-card flush">
+  <ui-data-table
+    caption="Registro de accesos"
+    [columns]="columns"
+    [rows]="val(result)?.items ?? []"
+    [loading]="result.isLoading()"
+    [rowClass]="rowClass"
+    emptyIcon="shield-check"
+    emptyTitle="Sin registros"
+    [emptyMessage]="hasFilters() ? 'Ningún acceso coincide con los filtros.' : ''"
+  >
+    <ng-template uiCell="createdAt" let-row>{{ row.createdAt | dateEs: 'datetime' }}</ng-template>
+    <ng-template uiCell="userName" let-row>
+      <div class="who">
+        <button
+          type="button"
+          class="link-btn"
+          [attr.title]="'Filtrar por el usuario #' + row.userId"
+          (click)="filterByUser(row)"
+        >
+          {{ row.userName ?? 'Usuario #' + row.userId }}
+        </button>
+        @if (row.userEmail) {
+          <span class="font-mono text-muted">{{ row.userEmail }}</span>
+        }
+      </div>
+    </ng-template>
+    <ng-template uiCell="role" let-row>{{ roleLabel(row.role) }}</ng-template>
+    <ng-template uiCell="module" let-row
+      ><span class="font-mono">{{ row.module }}</span></ng-template
+    >
+    <ng-template uiCell="path" let-row
+      ><span class="font-mono path">{{ row.path }}</span></ng-template
+    >
+    <ng-template uiCell="allowed" let-row>
+      <ui-badge [tone]="row.allowed ? 'success' : 'danger'">{{
+        row.allowed ? 'Permitido' : 'Denegado'
+      }}</ui-badge>
+    </ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="val(result)?.page ?? 1"
+      [pageSize]="query().pageSize ?? 50"
+      [pageSizeOptions]="[20, 50, 100, 200]"
+      [total]="val(result)?.total ?? 0"
+      (pageChange)="changePage($event)"
+    />
+  </ui-data-table>
+</section>

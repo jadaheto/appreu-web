@@ -1,0 +1,117 @@
+<div class="page-header">
+  <div>
+    <h1>Pagos</h1>
+    <p class="page-header__subtitle">
+      Recibos de caja emitidos, anulaciones y conciliación bancaria.
+    </p>
+  </div>
+</div>
+
+<ui-filter-bar
+  class="mb"
+  [showClear]="hasFilters()"
+  (apply)="applyFilters()"
+  (clear)="clearFilters()"
+>
+  <ui-search-box
+    placeholder="Recibo, estudiante o referencia…"
+    ariaLabel="Buscar pagos"
+    [(value)]="draft.search"
+    (search)="applyFilters()"
+  />
+  <ui-date-range [ngModel]="draft.range()" (ngModelChange)="draft.range.set($event)" name="range" />
+  <ui-select
+    ariaLabel="Método de pago"
+    placeholder="Todos los métodos"
+    [options]="methodOptions"
+    [ngModel]="draft.method()"
+    (ngModelChange)="draft.method.set($event)"
+    name="method"
+  />
+  <ui-select
+    ariaLabel="Estado"
+    placeholder="Todos los estados"
+    [options]="statusOptions"
+    [ngModel]="draft.status()"
+    (ngModelChange)="draft.status.set($event)"
+    name="status"
+  />
+</ui-filter-bar>
+
+<ui-data-table
+  [columns]="columns"
+  [rows]="rows()"
+  [loading]="list.isLoading()"
+  [actions]="actions()"
+  caption="Pagos registrados"
+  emptyTitle="No hay pagos"
+  emptyMessage="Los pagos registrados en caja aparecerán aquí."
+  (action)="onAction($event)"
+>
+  <ng-template uiCell="studentName" let-row>
+    <strong>{{ row.studentName }}</strong>
+    <small class="text-muted">{{ row.concepts.join(', ') || row.studentCode }}</small>
+  </ng-template>
+  <ng-template uiCell="status" let-row>
+    <ui-badge [tone]="statusTone(row.status)">{{ statusLabel(row.status) }}</ui-badge>
+  </ng-template>
+  <ng-template uiCell="reconciled" let-row>
+    @if (row.reconciled) {
+      <ui-badge tone="success">Conciliado</ui-badge>
+      <small class="text-muted font-mono">{{ row.bankRef }}</small>
+    } @else {
+      <ui-badge tone="warning">Pendiente</ui-badge>
+    }
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page ?? 1"
+    [pageSize]="filters().pageSize ?? 20"
+    [total]="val(list)?.total ?? 0"
+    (pageChange)="onPage($event)"
+  />
+</ui-data-table>
+
+<ui-modal
+  [open]="modalOpen()"
+  (closed)="closeModal()"
+  [title]="modal() === 'void' ? 'Anular pago' : 'Conciliar pago'"
+  [description]="
+    target()
+      ? target()!.receiptNumber + ' · ' + target()!.studentName + ' · ' + (target()!.amount | cop)
+      : ''
+  "
+>
+  @if (modal() === 'void') {
+    <form [formGroup]="voidForm" (ngSubmit)="submitVoid()" id="void-form" novalidate>
+      <ui-form-field label="Motivo de la anulación" required>
+        <ui-textarea formControlName="reason" [rows]="3" [maxlength]="255" />
+      </ui-form-field>
+    </form>
+  } @else if (modal() === 'reconcile') {
+    <form [formGroup]="reconcileForm" (ngSubmit)="submitReconcile()" id="reconcile-form" novalidate>
+      <ui-form-field
+        label="Referencia bancaria"
+        required
+        hint="Número de la transacción en el extracto"
+      >
+        <ui-input formControlName="bankRef" [maxlength]="100" mono />
+      </ui-form-field>
+    </form>
+  }
+  @if (modalError()) {
+    <ui-alert tone="error">{{ modalError() }}</ui-alert>
+  }
+  <div uiModalFooter class="modal-actions">
+    <button ui-button type="button" variant="ghost" (click)="closeModal()">Cancelar</button>
+    @if (modal() === 'void') {
+      <button ui-button type="submit" form="void-form" variant="danger" [loading]="busy()">
+        Anular pago
+      </button>
+    } @else {
+      <button ui-button type="submit" form="reconcile-form" variant="primary" [loading]="busy()">
+        Conciliar
+      </button>
+    }
+  </div>
+</ui-modal>

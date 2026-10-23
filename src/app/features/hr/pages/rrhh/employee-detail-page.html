@@ -1,0 +1,257 @@
+@if (shown(); as doc) {
+  @if (doc.kind === 'employment') {
+    <app-employment-certificate-sheet [certificate]="doc.data">
+      <app-pdf-download-button
+        sheetActions
+        variant="primary"
+        [request]="employmentPdf(doc.data)"
+        [fileName]="employmentFileName(doc.data)"
+      />
+      <button sheetActions ui-button variant="ghost" icon="arrow-left" (click)="shown.set(null)">
+        Volver a la ficha
+      </button>
+    </app-employment-certificate-sheet>
+  } @else {
+    <app-income-certificate-sheet [certificate]="doc.data">
+      <app-pdf-download-button
+        sheetActions
+        variant="primary"
+        [request]="incomePdf(doc.data)"
+        [fileName]="incomeFileName(doc.data)"
+      />
+      <button sheetActions ui-button variant="ghost" icon="arrow-left" (click)="shown.set(null)">
+        Volver a la ficha
+      </button>
+    </app-income-certificate-sheet>
+  }
+} @else {
+  @if (loadError()) {
+    <ui-alert tone="error" title="No se pudo cargar el empleado">{{ loadError() }}</ui-alert>
+    <p style="margin-top: var(--space-4)">
+      <a ui-button variant="ghost" icon="arrow-left" [routerLink]="base">Volver al directorio</a>
+    </p>
+  } @else if (!data()) {
+    <div class="ui-card" style="text-align: center"><ui-spinner size="lg" /></div>
+  } @else {
+    @let e = data()!;
+    <header class="hero">
+      <ui-avatar [name]="e.fullName" size="lg" />
+      <div class="grow">
+        <h1>{{ e.fullName }}</h1>
+        <p class="text-muted">
+          <span class="font-mono">{{ e.code }}</span> · {{ e.position || 'Sin cargo' }}
+          @if (e.department) {
+            / {{ e.department }}
+          }
+        </p>
+        <div class="cluster" style="margin-top: var(--space-2)">
+          <app-hr-status-badge [status]="e.status" />
+          <ui-badge tone="primary">{{ typeLabels[e.employeeType] }}</ui-badge>
+          @if (!e.hasUserAccount) {
+            <ui-badge tone="warning">Sin usuario del portal</ui-badge>
+          }
+        </div>
+      </div>
+      <div class="cluster">
+        <a ui-button variant="ghost" icon="arrow-left" [routerLink]="base">Directorio</a>
+        @if (e.status !== 'retired') {
+          <a ui-button icon="pencil" [routerLink]="[base, 'empleados', e.id, 'editar']">Editar</a>
+        }
+        @if (canChangeStatus()) {
+          <button ui-button icon="arrows-up-down" (click)="openModal('status')">
+            Cambiar estado
+          </button>
+        }
+        @if (e.status !== 'retired') {
+          <button ui-button variant="danger" icon="logout" (click)="openModal('retire')">
+            Retirar
+          </button>
+        }
+      </div>
+    </header>
+
+    @if (e.status === 'retired') {
+      <ui-alert tone="info" title="Empleado retirado" class="mb">
+        Retirado el {{ shortDate(e.retirementDate) }}. Motivo: {{ e.retirementReason || '—' }}
+      </ui-alert>
+    }
+
+    <ui-tabs [tabs]="tabs" [(active)]="tab" ariaLabel="Secciones de la ficha">
+      @switch (tab()) {
+        @case ('info') {
+          <div class="stack">
+            <section class="ui-card">
+              <h2 class="ui-card__title">Datos personales</h2>
+              <dl class="info">
+                <div>
+                  <dt>Documento</dt>
+                  <dd>{{ documentLabels[e.documentType] }} {{ e.documentNumber }}</dd>
+                </div>
+                <div>
+                  <dt>Género</dt>
+                  <dd>{{ genderLabels[e.gender] }}</dd>
+                </div>
+                <div>
+                  <dt>Fecha de nacimiento</dt>
+                  <dd>{{ shortDate(e.birthDate) }}</dd>
+                </div>
+                <div>
+                  <dt>Correo</dt>
+                  <dd>{{ e.email || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Celular</dt>
+                  <dd>{{ e.phone || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Dirección</dt>
+                  <dd>{{ e.address || '—' }}</dd>
+                </div>
+              </dl>
+            </section>
+            <section class="ui-card">
+              <h2 class="ui-card__title">Cargo y contrato</h2>
+              <dl class="info">
+                <div>
+                  <dt>Tipo</dt>
+                  <dd>{{ typeLabels[e.employeeType] }}</dd>
+                </div>
+                <div>
+                  <dt>Cargo</dt>
+                  <dd>{{ e.position || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Departamento</dt>
+                  <dd>{{ e.department || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Contrato</dt>
+                  <dd>{{ contractLabels[e.contractType] }}</dd>
+                </div>
+                <div>
+                  <dt>Fecha de ingreso</dt>
+                  <dd>{{ shortDate(e.hireDate) }}</dd>
+                </div>
+                <div>
+                  <dt>Salario base</dt>
+                  <dd class="font-mono">
+                    {{ e.baseSalary | cop }}{{ e.integralSalary ? ' (integral)' : '' }}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <section class="ui-card">
+              <h2 class="ui-card__title">Banco y seguridad social</h2>
+              <dl class="info">
+                <div>
+                  <dt>Banco</dt>
+                  <dd>{{ e.bankAccount.bankName || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Cuenta</dt>
+                  <dd class="font-mono">
+                    {{ e.bankAccount.number || '—' }} ({{ accountLabels[e.bankAccount.type] }})
+                  </dd>
+                </div>
+                <div>
+                  <dt>EPS</dt>
+                  <dd>{{ e.socialSecurity.eps || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>Fondo de pensiones</dt>
+                  <dd>{{ e.socialSecurity.pensionFund || '—' }}</dd>
+                </div>
+                <div>
+                  <dt>ARL</dt>
+                  <dd>
+                    {{ e.socialSecurity.arl || '—' }} · clase {{ e.socialSecurity.arlRiskClass }}
+                  </dd>
+                </div>
+              </dl>
+            </section>
+            <section class="ui-card">
+              <h2 class="ui-card__title">Deducciones y retención</h2>
+              <dl class="info">
+                <div>
+                  <dt>Libranza</dt>
+                  <dd class="font-mono">{{ e.recurringDeductions.libranza | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Cuota sindical</dt>
+                  <dd class="font-mono">{{ e.recurringDeductions.sindicato | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Embargo</dt>
+                  <dd class="font-mono">
+                    {{ e.recurringDeductions.embargo | cop
+                    }}{{ e.recurringDeductions.embargoIsAlimony ? ' (alimentos)' : '' }}
+                  </dd>
+                </div>
+                <div>
+                  <dt>Dependientes</dt>
+                  <dd>{{ e.withholding.hasDependents ? 'Sí' : 'No' }}</dd>
+                </div>
+                <div>
+                  <dt>Medicina prepagada</dt>
+                  <dd class="font-mono">{{ e.withholding.prepaidHealth | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Intereses de vivienda</dt>
+                  <dd class="font-mono">{{ e.withholding.housingInterest | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Aportes voluntarios</dt>
+                  <dd class="font-mono">{{ e.withholding.voluntaryPension | cop }}</dd>
+                </div>
+              </dl>
+            </section>
+          </div>
+        }
+        @case ('payslips') {
+          <ui-data-table
+            caption="Desprendibles del empleado"
+            [columns]="payslipColumns"
+            [rows]="payslipRows()"
+            [loading]="payslips.isLoading()"
+            trackBy="paymentId"
+            rowClickable
+            emptyIcon="banknotes"
+            emptyTitle="Sin desprendibles"
+            emptyMessage="Aparecerán cuando el empleado sea liquidado en un período."
+            (rowClick)="openPayslip($event)"
+          >
+            <ng-template uiCell="status" let-row>
+              <app-hr-status-badge kind="payment" [status]="row.status" />
+            </ng-template>
+            <ng-template uiCell="open" let-row>
+              <a ui-button size="sm" variant="ghost" icon="printer" [routerLink]="payslipLink(row)"
+                >Ver</a
+              >
+            </ng-template>
+            <ui-pagination
+              uiTableFooter
+              [page]="payslipPage().page"
+              [pageSize]="payslipPage().pageSize"
+              [total]="payslipTotal()"
+              (pageChange)="changePayslipPage($event)"
+            />
+          </ui-data-table>
+        }
+        @case ('certificates') {
+          <app-certificates-panel
+            [employeeId]="e.id"
+            (employment)="shown.set({ kind: 'employment', data: $event })"
+            (incomeReady)="shown.set({ kind: 'income', data: $event })"
+          />
+        }
+      }
+    </ui-tabs>
+
+    <app-employee-status-modal
+      [(open)]="modalOpen"
+      [employee]="e"
+      [mode]="modalMode()"
+      (saved)="employee.reload()"
+    />
+  }
+}

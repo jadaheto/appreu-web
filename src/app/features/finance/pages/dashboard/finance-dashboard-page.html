@@ -1,0 +1,141 @@
+<div class="page-header">
+  <div>
+    <h1>Dashboard financiero</h1>
+    <p class="page-header__subtitle">Indicadores de {{ monthName() }}</p>
+  </div>
+  <div class="cluster">
+    <ui-input
+      class="month"
+      type="month"
+      ariaLabel="Mes del reporte"
+      [ngModel]="month()"
+      (ngModelChange)="setMonth($event)"
+    />
+    <a ui-button variant="primary" icon="banknotes" routerLink="caja">Ir a caja</a>
+  </div>
+</div>
+
+@if (error()) {
+  <ui-alert tone="error" title="No se pudo cargar el dashboard" class="mb">{{ error() }}</ui-alert>
+}
+
+<section class="grid grid--4 mb" aria-label="Indicadores del mes">
+  <ui-stat-card
+    label="Ingresos del mes"
+    icon="banknotes"
+    tone="success"
+    [loading]="data.isLoading()"
+    [value]="d() ? cop(d()!.income.value) : null"
+    [delta]="d()?.income?.changePct ?? null"
+    [hint]="d() ? 'vs. ' + cop(d()!.income.previous) + ' mes anterior' : ''"
+  />
+  <ui-stat-card
+    label="Gastos del mes"
+    icon="calculator"
+    tone="warning"
+    [loading]="data.isLoading()"
+    [value]="d() ? cop(d()!.expenses.value) : null"
+    [delta]="d()?.expenses?.changePct ?? null"
+    [hint]="d() ? 'vs. ' + cop(d()!.expenses.previous) + ' mes anterior' : ''"
+  />
+  <ui-stat-card
+    label="Utilidad neta"
+    icon="chart-bar"
+    [tone]="(d()?.netProfit ?? 0) < 0 ? 'danger' : 'primary'"
+    [loading]="data.isLoading()"
+    [value]="d() ? cop(d()!.netProfit) : null"
+    hint="Ingresos − gastos (caja)"
+  />
+  <ui-stat-card
+    label="Cartera vencida"
+    icon="exclamation-triangle"
+    tone="danger"
+    [loading]="data.isLoading()"
+    [value]="d() ? cop(d()!.overduePortfolio.balance) : null"
+    [hint]="d() ? d()!.overduePortfolio.debtors + ' deudores' : ''"
+    link="cartera"
+    linkLabel="Ver deudores"
+  />
+</section>
+
+<section class="ui-card mb" aria-labelledby="quick-title">
+  <h2 class="ui-card__title" id="quick-title">Accesos rápidos</h2>
+  <div class="tiles">
+    @for (t of tiles; track t.link) {
+      <a class="tile" [routerLink]="t.link">
+        <ui-icon [name]="t.icon" [size]="24" />
+        {{ t.label }}
+      </a>
+    }
+  </div>
+</section>
+
+<section class="grid grid--3 mb">
+  <article class="ui-card span-2">
+    <h2 class="ui-card__title">
+      Cargos por concepto <span class="text-muted">· {{ monthName() }}</span>
+    </h2>
+    @if (d()?.chargesByCategory?.length) {
+      <ui-bar-chart
+        [labels]="categoryLabels()"
+        [series]="categorySeries()"
+        [height]="256"
+        ariaLabel="Cargos por categoría de concepto"
+        [valueFormat]="copFormatter"
+      />
+    } @else {
+      <ui-empty-state icon="chart-bar" title="Sin cargos en el mes" />
+    }
+  </article>
+  <article class="ui-card">
+    <h2 class="ui-card__title">Top gastos por categoría</h2>
+    @if (expenseData().length) {
+      <ui-donut-chart
+        [data]="expenseData()"
+        [height]="192"
+        centerLabel="Gastos"
+        ariaLabel="Gastos por categoría"
+        [valueFormat]="copFormatter"
+      />
+    } @else {
+      <ui-empty-state icon="calculator" title="Sin gastos registrados" />
+    }
+  </article>
+</section>
+
+<section class="ui-card" aria-labelledby="inv-title">
+  <div class="cluster" style="justify-content: space-between">
+    <h2 class="ui-card__title" id="inv-title" style="flex: 1">Últimas facturas electrónicas</h2>
+  </div>
+  @if (d()?.latestInvoices?.length) {
+    <ul class="invoices">
+      @for (inv of d()!.latestInvoices; track inv.id) {
+        <li>
+          <div>
+            <p class="font-mono">
+              <strong>{{ inv.invoiceNumber }}</strong>
+            </p>
+            <p class="text-muted">
+              {{ inv.studentName || 'Cliente' }} · {{ fmtDay(inv.issueDate) }}
+            </p>
+          </div>
+          <div class="right">
+            <span class="font-mono"
+              ><strong>{{ inv.totalAmount | cop }}</strong></span
+            >
+            <ui-badge [tone]="invoiceStatus(inv.status).tone">{{
+              invoiceStatus(inv.status).label
+            }}</ui-badge>
+          </div>
+        </li>
+      }
+    </ul>
+  } @else {
+    <ui-empty-state icon="document-check" title="Aún no hay facturas electrónicas" />
+  }
+  <p style="margin-top: var(--space-4)">
+    <a ui-button variant="ghost" iconRight="chevron-right" routerLink="/admin/facturacion"
+      >Ver todas</a
+    >
+  </p>
+</section>

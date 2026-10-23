@@ -1,0 +1,124 @@
+<div class="page-header">
+  <div>
+    <h1>Diagnóstico DIAN</h1>
+    <p class="page-header__subtitle">
+      Chequeos de configuración, certificado de firma y reenvío de documentos pendientes.
+    </p>
+  </div>
+  @if (isAdmin()) {
+    <div class="cluster">
+      <button
+        ui-button
+        variant="secondary"
+        icon="arrows-up-down"
+        [loading]="diagnostics.isLoading()"
+        (click)="diagnostics.reload(); certificate.reload()"
+      >
+        Volver a diagnosticar
+      </button>
+      <button
+        ui-button
+        variant="primary"
+        icon="arrow-up"
+        [loading]="retrying()"
+        (click)="retryPending()"
+      >
+        Reenviar pendientes
+      </button>
+    </div>
+  }
+</div>
+
+@if (!isAdmin()) {
+  <ui-empty-state
+    icon="lock-closed"
+    title="Solo para administradores"
+    message="El diagnóstico, el certificado y el reenvío masivo están reservados al administrador del colegio."
+  />
+} @else {
+  @if (retryResult(); as r) {
+    <section class="ui-card mb" aria-labelledby="diag-retry">
+      <h2 class="ui-card__title" id="diag-retry">Resultado del reenvío</h2>
+      <p>{{ r.processed }} procesados · {{ r.skipped }} omitidos</p>
+      @if (r.results.length) {
+        <ul class="results">
+          @for (item of r.results; track item.id) {
+            <li>
+              <a class="font-mono" [routerLink]="['..', 'documentos', item.id]">{{
+                item.number
+              }}</a>
+              <app-document-status-badge [status]="item.status" />
+            </li>
+          }
+        </ul>
+      }
+    </section>
+  }
+
+  <div class="grid grid--3">
+    <section class="ui-card span-2" aria-labelledby="diag-checks">
+      <h2 class="ui-card__title" id="diag-checks">Chequeos</h2>
+      @if (diagnostics.isLoading() && !val(diagnostics)) {
+        <div class="center"><ui-spinner label="Diagnosticando…" /></div>
+      } @else if (diagnostics.error()) {
+        <ui-alert tone="error" title="No se pudo ejecutar el diagnóstico">
+          {{ errorText(diagnostics.error()) }}
+        </ui-alert>
+      } @else if (val(diagnostics); as d) {
+        <ui-alert
+          class="mb"
+          [tone]="d.ready ? 'success' : 'error'"
+          [title]="d.ready ? 'Listo para emitir' : 'No es posible emitir todavía'"
+        >
+          {{ counts().errors }} errores · {{ counts().warnings }} advertencias
+        </ui-alert>
+        <ul class="checks">
+          @for (c of d.checks; track c.code) {
+            <li>
+              <span [class]="'sev-' + severity[c.severity].tone">
+                <ui-icon [name]="severity[c.severity].icon" [label]="severity[c.severity].label" />
+              </span>
+              <div>
+                <div>{{ c.message }}</div>
+                <div class="code font-mono">{{ c.code }}</div>
+              </div>
+            </li>
+          }
+        </ul>
+      }
+    </section>
+
+    <section class="ui-card" aria-labelledby="diag-cert">
+      <h2 class="ui-card__title" id="diag-cert">Certificado de firma</h2>
+      @if (certificate.isLoading() && !val(certificate)) {
+        <div class="center"><ui-spinner label="Leyendo certificado…" /></div>
+      } @else if (certificate.error()) {
+        <ui-alert tone="error" title="Certificado no disponible">
+          {{ errorText(certificate.error()) }}
+        </ui-alert>
+      } @else if (val(certificate); as cert) {
+        <p class="mb">
+          @if (cert.expired) {
+            <ui-badge tone="danger" dot>Vencido</ui-badge>
+          } @else if (cert.daysToExpire <= 30) {
+            <ui-badge tone="warning" dot>Vence en {{ cert.daysToExpire }} días</ui-badge>
+          } @else {
+            <ui-badge tone="success" dot>Vigente · {{ cert.daysToExpire }} días</ui-badge>
+          }
+        </p>
+        <dl>
+          <dt>Titular</dt>
+          <dd>{{ cert.subject }}</dd>
+          <dt>Emisor</dt>
+          <dd>{{ cert.issuer }}</dd>
+          <dt>Serial</dt>
+          <dd class="font-mono">{{ cert.serialNumber }}</dd>
+          <dt>Desde</dt>
+          <dd>{{ cert.validFrom | dateEs: 'datetime' }}</dd>
+          <dt>Hasta</dt>
+          <dd>{{ cert.validTo | dateEs: 'datetime' }}</dd>
+        </dl>
+      }
+    </section>
+  </div>
+}

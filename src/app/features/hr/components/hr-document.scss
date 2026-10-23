@@ -1,0 +1,143 @@
+// Estilos comunes de los documentos imprimibles de RR. HH. (desprendible y certificados).
+:host {
+  display: block;
+}
+.facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem 1.5rem;
+  padding: 0.75rem 1rem;
+  margin-bottom: 1rem;
+  background: #f8fafc;
+  border-radius: 0.5rem;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+@media (min-width: 640px) {
+  .facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+.facts dt {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #64748b;
+}
+.facts dd {
+  margin: 0;
+  font-weight: 600;
+  color: #0f172a;
+}
+.cols {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .cols {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+@media print {
+  .cols {
+    grid-template-columns: 1fr 1fr;
+  }
+  .facts {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+caption {
+  text-align: left;
+  font-weight: 800;
+  padding-bottom: 0.35rem;
+  color: #0f172a;
+}
+th,
+td {
+  padding: 0.35rem 0.25rem;
+  border-bottom: 1px solid #e2e8f0;
+  text-align: left;
+}
+td.num,
+th.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+tfoot td {
+  font-weight: 800;
+  border-bottom: 0;
+  border-top: 2px solid #cbd5e1;
+}
+.plus caption {
+  color: #15803d;
+}
+.minus caption {
+  color: #b91c1c;
+}
+.net {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 1rem 0;
+  padding: 0.85rem 1rem;
+  border-radius: 0.5rem;
+  background: var(--gradient-primary);
+  color: #fff;
+  -webkit-print-color-adjust: exact;
+  print-color-adjust: exact;
+}
+.net strong {
+  font-family: var(--font-mono);
+  font-size: 1.35rem;
+}
+.net small {
+  display: block;
+  opacity: 0.9;
+}
+.informative {
+  margin-top: 1rem;
+  font-size: 0.8rem;
+  color: #475569;
+}
+.paragraph {
+  text-align: justify;
+  line-height: 1.8;
+  margin-bottom: 1rem;
+}
+.signature {
+  margin-top: 3.5rem;
+  width: 18rem;
+  max-width: 100%;
+  border-top: 1px solid #0f172a;
+  padding-top: 0.35rem;
+}
+.signature p:first-child {
+  font-weight: 800;
+  text-transform: uppercase;
+}
+.note {
+  margin-top: 1rem;
+  padding: 0.6rem 0.85rem;
+  border-radius: 0.5rem;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  color: #92400e;
+  font-size: 0.8rem;
+}
+.code {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.paragraph.heading {
+  text-align: center;
+  font-weight: 800;
+  margin: 1rem 0 1.5rem;
+}

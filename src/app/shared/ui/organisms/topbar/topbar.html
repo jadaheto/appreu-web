@@ -1,0 +1,70 @@
+<button type="button" class="icon-btn burger" aria-label="Abrir menú" (click)="menuToggle.emit()">
+  <ui-icon name="bars-3" [size]="22" />
+</button>
+<div class="titles">
+  <p class="title">{{ title() }}</p>
+  @if (subtitle()) {
+    <p class="subtitle">{{ subtitle() }}</p>
+  }
+</div>
+<div class="actions">
+  <ng-content />
+  <button
+    type="button"
+    class="icon-btn"
+    [attr.aria-label]="darkMode() ? 'Usar tema claro' : 'Usar tema oscuro'"
+    [attr.title]="darkMode() ? 'Tema claro' : 'Tema oscuro'"
+    (click)="themeToggle.emit()"
+  >
+    <ui-icon [name]="darkMode() ? 'sun' : 'moon'" [size]="20" />
+  </button>
+  @if (showNotifications()) {
+    <button
+      type="button"
+      class="icon-btn bell"
+      [attr.aria-label]="
+        'Notificaciones' + (notificationsCount() ? ': ' + notificationsCount() + ' sin leer' : '')
+      "
+      (click)="notificationsClick.emit()"
+    >
+      <ui-icon name="bell" [size]="20" />
+      @if (notificationsCount() > 0) {
+        <span class="dot" aria-hidden="true"></span>
+      }
+    </button>
+  }
+  @if (user(); as u) {
+    <div class="user">
+      <button
+        type="button"
+        class="user-btn"
+        aria-haspopup="menu"
+        [attr.aria-expanded]="menuOpen()"
+        (click)="menuOpen.set(!menuOpen())"
+      >
+        <ui-avatar [name]="u.name" [src]="u.avatar ?? null" size="sm" />
+        <span class="uname">{{ u.name }}</span>
+        <ui-icon name="chevron-down" [size]="16" />
+      </button>
+      @if (menuOpen()) {
+        <div class="menu" role="menu">
+          <div class="menu-head">
+            <p class="strong">{{ u.name }}</p>
+            @if (u.email) {
+              <p class="muted">{{ u.email }}</p>
+            }
+            @if (u.roleLabel) {
+              <p class="role">{{ u.roleLabel }}</p>
+            }
+          </div>
+          <button type="button" role="menuitem" (click)="choose('password')">
+            <ui-icon name="lock-closed" [size]="18" /> Cambiar contraseña
+          </button>
+          <button type="button" role="menuitem" class="danger" (click)="choose('logout')">
+            <ui-icon name="logout" [size]="18" /> Cerrar sesión
+          </button>
+        </div>
+      }
+    </div>
+  }
+</div>

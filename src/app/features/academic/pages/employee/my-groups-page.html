@@ -1,0 +1,272 @@
+<div class="page-header">
+  <div>
+    <h1>Mis grupos</h1>
+    <p class="page-header__subtitle">
+      @if (panel(); as p) {
+        Director de grupo · {{ p.classroom.name }} ({{ p.classroom.gradeName }}) ·
+        {{ p.classroom.academicYear }}
+      } @else {
+        Panel del director de grupo
+      }
+    </p>
+  </div>
+  @if (classroomOptions().length > 1) {
+    <div class="cluster no-print">
+      <ui-select
+        class="picker"
+        ariaLabel="Cambiar grupo"
+        [placeholder]="null"
+        [options]="classroomOptions()"
+        [ngModel]="classroomId()"
+        (ngModelChange)="classroomId.set($event)"
+      />
+    </div>
+  }
+</div>
+
+@if (classrooms.isLoading()) {
+  <div class="center"><ui-spinner size="lg" label="Cargando grupos…" /></div>
+} @else if (classrooms.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar tus grupos">{{
+    classrooms.error()?.message
+  }}</ui-alert>
+} @else if (!classroomList().length) {
+  <section class="ui-card">
+    <ui-empty-state
+      icon="users"
+      title="No diriges ningún grupo"
+      message="Cuando la coordinación te asigne como director de grupo, verás aquí el panel del salón y sus boletines."
+    >
+      <a
+        ui-button
+        variant="secondary"
+        icon="document-text"
+        routerLink="/portal-empleado/calificaciones"
+      >
+        Ir a calificaciones
+      </a>
+    </ui-empty-state>
+  </section>
+} @else {
+  <ui-tabs [tabs]="tabs" [(active)]="tab" ariaLabel="Secciones del grupo">
+    @switch (tab()) {
+      @case ('panel') {
+        @if (dashboard.error()) {
+          <ui-alert tone="error">{{ dashboard.error()?.message }}</ui-alert>
+        } @else {
+          <section class="grid grid--3 mb" aria-label="Indicadores del grupo">
+            <ui-stat-card
+              [label]="'Estudiantes en ' + (panel()?.classroom?.name ?? '')"
+              icon="users"
+              tone="primary"
+              [loading]="dashboard.isLoading()"
+              [value]="panel()?.totals?.students ?? null"
+              [hint]="
+                panel() ? panel()!.totals.boys + ' niños · ' + panel()!.totals.girls + ' niñas' : ''
+              "
+            />
+            <ui-stat-card
+              label="Fallas del mes"
+              icon="exclamation-triangle"
+              [tone]="panel()?.totals?.critical ? 'danger' : 'warning'"
+              [loading]="dashboard.isLoading()"
+              [value]="panel()?.totals?.monthlyAbsences ?? null"
+              [hint]="(panel()?.totals?.critical ? 'Crítico · ' : '') + monthText()"
+            />
+            <ui-stat-card
+              label="Capacidad del salón"
+              icon="building"
+              tone="info"
+              [loading]="dashboard.isLoading()"
+              [value]="
+                panel()
+                  ? panel()!.classroom.studentsCount + ' / ' + panel()!.classroom.capacity
+                  : null
+              "
+              [hint]="panel()?.classroom?.isFull ? 'Salón lleno' : 'Cupos disponibles'"
+            />
+          </section>
+
+          <div class="toolbar no-print">
+            <ui-search-box
+              placeholder="Buscar por nombre, código o documento…"
+              [debounce]="150"
+              (search)="search.set($event)"
+            />
+            <div class="cluster" role="group" aria-label="Filtrar por género">
+              <button
+                ui-chip
+                type="button"
+                [active]="gender() === 'all'"
+                (click)="gender.set('all')"
+              >
+                Todos
+              </button>
+              <button ui-chip type="button" [active]="gender() === 'M'" (click)="gender.set('M')">
+                Hombres
+              </button>
+              <button ui-chip type="button" [active]="gender() === 'F'" (click)="gender.set('F')">
+                Mujeres
+              </button>
+            </div>
+            <button ui-button type="button" variant="secondary" icon="printer" (click)="print()">
+              Imprimir
+            </button>
+          </div>
+
+          <ui-data-table
+            caption="Listado de alumnos"
+            [columns]="studentColumns"
+            [rows]="students()"
+            [trackBy]="trackStudent"
+            [loading]="dashboard.isLoading()"
+            emptyTitle="Sin estudiantes"
+            emptyMessage="No hay alumnos que coincidan con la búsqueda."
+            emptyIcon="users"
+          >
+            <ng-template uiCell="gender" let-value="value">
+              <ui-badge [tone]="value === 'F' ? 'danger' : value === 'M' ? 'info' : 'neutral'">
+                {{ value === 'F' ? 'F' : value === 'M' ? 'M' : 'O' }}
+              </ui-badge>
+            </ng-template>
+            <ng-template uiCell="phone" let-value="value">
+              @if (value) {
+                <a [href]="'tel:' + value" class="font-mono">{{ value }}</a>
+              } @else {
+                <span class="text-muted">—</span>
+              }
+            </ng-template>
+          </ui-data-table>
+        }
+      }
+      @case ('report-cards') {
+        <div class="filters no-print">
+          <ui-form-field label="Período">
+            <ui-select
+              [options]="periodOptions()"
+              placeholder="Seleccione el período…"
+              [ngModel]="periodId()"
+              (ngModelChange)="periodId.set($event)"
+            />
+          </ui-form-field>
+          <button
+            ui-button
+            type="button"
+            variant="primary"
+            icon="download"
+            [disabled]="!groupData()?.totals?.generated"
+            [loading]="downloading()"
+            (click)="downloadZip()"
+          >
+            Descargar ZIP
+          </button>
+        </div>
+
+        @if (periods.hasValue() && !hasGenerated()) {
+          <ui-alert tone="warning" class="mb">
+            Aún no se han generado boletines en el año lectivo. Se habilitarán cuando coordinación
+            cierre el período y los genere.
+          </ui-alert>
+        }
+
+        @if (!periodId()) {
+          <ui-empty-state
+            icon="document-check"
+            title="Selecciona un período"
+            message="Elige un período cerrado para ver el estado de los boletines."
+          />
+        } @else if (group.error()) {
+          <ui-alert tone="error">{{ group.error()?.message }}</ui-alert>
+        } @else {
+          <section class="grid grid--3 mb" aria-label="Indicadores de boletines">
+            <ui-stat-card
+              label="Promedio grupal"
+              icon="chart-bar"
+              tone="primary"
+              [loading]="group.isLoading()"
+              [value]="groupData() ? score(groupData()!.totals.groupAverage) : null"
+              [hint]="groupData()?.period?.name ?? ''"
+            />
+            <ui-stat-card
+              label="Boletines generados"
+              icon="document-check"
+              tone="success"
+              [loading]="group.isLoading()"
+              [value]="
+                groupData()
+                  ? groupData()!.totals.generated + ' / ' + groupData()!.totals.students
+                  : null
+              "
+              hint="Estudiantes del grupo"
+            />
+            <ui-stat-card
+              label="Mejor desempeño"
+              icon="academic-cap"
+              tone="warning"
+              [loading]="group.isLoading()"
+              [value]="
+                groupData()?.totals?.topStudent
+                  ? score(groupData()!.totals.topStudent!.averageScore)
+                  : 'Sin datos'
+              "
+              [hint]="groupData()?.totals?.topStudent?.fullName ?? ''"
+            />
+          </section>
+
+          <div class="toolbar no-print">
+            <ui-search-box
+              placeholder="Buscar estudiante…"
+              [debounce]="150"
+              (search)="cardSearch.set($event)"
+            />
+          </div>
+
+          <ui-data-table
+            caption="Estado de informes"
+            [columns]="cardColumns"
+            [rows]="cardRows()"
+            [trackBy]="trackStudent"
+            [loading]="group.isLoading()"
+            emptyTitle="Sin estudiantes"
+            emptyIcon="document-check"
+          >
+            <ng-template uiCell="fullName" let-row>
+              <span class="strong">{{ row.fullName }}</span>
+              <span class="sub font-mono">#{{ row.code }}</span>
+            </ng-template>
+            <ng-template uiCell="averageScore" let-row>
+              @if (row.averageScore !== null) {
+                <app-grade-value
+                  [value]="row.averageScore"
+                  [passing]="row.passing"
+                  [strong]="true"
+                />
+              } @else {
+                <span class="text-muted">Pendiente</span>
+              }
+            </ng-template>
+            <ng-template uiCell="status" let-value="value">
+              <ui-badge [tone]="value === 'generated' ? 'success' : 'neutral'">
+                {{ value === 'generated' ? 'Generado' : 'Sin nota' }}
+              </ui-badge>
+            </ng-template>
+            <ng-template uiCell="view" let-row>
+              @if (row.status === 'generated') {
+                <a
+                  ui-button
+                  size="sm"
+                  variant="ghost"
+                  icon="eye"
+                  [routerLink]="['boletin', row.studentId, periodId()]"
+                  [attr.aria-label]="'Ver boletín de ' + row.fullName"
+                >
+                  Ver
+                </a>
+              }
+            </ng-template>
+          </ui-data-table>
+        }
+      }
+    }
+  </ui-tabs>
+}

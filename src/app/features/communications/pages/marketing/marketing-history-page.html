@@ -1,0 +1,71 @@
+<a ui-button variant="ghost" size="sm" icon="arrow-left" routerLink=".." class="back"
+  >Volver a Marketing IA</a
+>
+<div class="page-header">
+  <div>
+    <h1>Historial de generaciones</h1>
+    <p class="page-header__subtitle">Solo ves el contenido que tú generaste.</p>
+  </div>
+</div>
+
+<ui-filter-bar class="mb" [showClear]="hasFilters()" (apply)="apply()" (clear)="clear()">
+  <ui-search-box
+    placeholder="Buscar en instrucciones o resultados…"
+    [(value)]="search"
+    (search)="apply()"
+  />
+  <ui-form-field label="Tipo">
+    <ui-select [options]="typeOptions()" placeholder="Todos los tipos" [(ngModel)]="type" />
+  </ui-form-field>
+  <ui-form-field label="Fecha">
+    <ui-input type="date" [(ngModel)]="date" />
+  </ui-form-field>
+</ui-filter-bar>
+
+@if (history.isLoading() && !val(history)) {
+  <ui-spinner size="lg" />
+} @else if (val(history)?.items?.length) {
+  <div class="list mb">
+    @for (g of val(history)!.items; track g.id) {
+      <article class="ui-card">
+        <div class="result__head">
+          <strong>{{ titleOf(g.type) }}</strong>
+          <span class="muted-date">{{ g.createdAt | dateEs: 'datetime' }}</span>
+        </div>
+        <p class="label">Instrucciones dadas</p>
+        <p>{{ g.contextInput }}</p>
+        @if (crmEntries(g.crmData).length) {
+          <p class="label">Datos CRM analizados</p>
+          <div class="chips">
+            @for (c of crmEntries(g.crmData); track c.key) {
+              <span class="chip">{{ c.key }}: {{ c.value }}</span>
+            }
+          </div>
+        }
+        <p class="label">Resultado generado por la IA</p>
+        <div class="ai-text scroll" [innerHTML]="g.aiResponse | markdownLite"></div>
+      </article>
+    }
+  </div>
+  <ui-pagination
+    [page]="val(history)!.page"
+    [pageSize]="query().pageSize ?? 10"
+    [pageSizeOptions]="[10, 20, 50]"
+    [total]="val(history)!.total"
+    (pageChange)="changePage($event)"
+  />
+} @else {
+  <section class="ui-card">
+    <ui-empty-state
+      icon="megaphone"
+      title="Sin generaciones"
+      [message]="
+        hasFilters()
+          ? 'Ninguna generación coincide con los filtros.'
+          : 'Aún no has generado contenido.'
+      "
+    >
+      <a ui-button variant="primary" routerLink="..">Ir a los generadores</a>
+    </ui-empty-state>
+  </section>
+}

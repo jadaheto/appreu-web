@@ -1,0 +1,297 @@
+<div class="catalog">
+  <header class="page-header">
+    <div>
+      <h1>Catálogo de componentes</h1>
+      <p class="page-header__subtitle">shared/ui · Atomic Design · solo visible en desarrollo</p>
+    </div>
+    <button
+      ui-button
+      variant="secondary"
+      [icon]="theme.isDark() ? 'sun' : 'moon'"
+      (click)="theme.toggle()"
+    >
+      Tema {{ theme.isDark() ? 'claro' : 'oscuro' }}
+    </button>
+  </header>
+
+  <h2 class="level">Átomos</h2>
+
+  <section class="ui-card">
+    <h3 class="ui-card__title">Botones</h3>
+    <div class="cluster">
+      <button ui-button variant="primary" icon="plus">Primario</button>
+      <button ui-button variant="secondary">Secundario</button>
+      <button ui-button variant="ghost" icon="pencil">Ghost</button>
+      <button ui-button variant="danger" icon="trash">Peligro</button>
+      <button ui-button variant="success" icon="check">Éxito</button>
+      <button ui-button variant="primary" loading>Cargando</button>
+      <button ui-button variant="secondary" disabled>Deshabilitado</button>
+      <button ui-button variant="ghost" icon="cog" iconOnly aria-label="Configurar"></button>
+    </div>
+    <div class="cluster mt">
+      <button ui-button variant="primary" size="xs">xs</button>
+      <button ui-button variant="primary" size="sm">sm</button>
+      <button ui-button variant="primary" size="md">md</button>
+      <button ui-button variant="primary" size="lg">lg</button>
+      <a ui-link href="#" iconRight="chevron-right">Enlace</a>
+      <a ui-link href="#" muted>Enlace atenuado</a>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <h3 class="ui-card__title">Badges, chips, avatares, montos, progreso</h3>
+    <div class="cluster">
+      <ui-badge status="paid" /><ui-badge status="pending" /><ui-badge status="overdue" /><ui-badge
+        status="partial"
+      />
+      <ui-badge status="cancelled" /><ui-badge tone="primary" dot>Nuevo</ui-badge>
+    </div>
+    <div class="cluster mt">
+      <button ui-chip [active]="filter() === 'all'" (click)="filter.set('all')">Todo</button>
+      <button ui-chip [active]="filter() === 'unread'" [count]="4" (click)="filter.set('unread')">
+        No leídos
+      </button>
+      <button ui-chip [active]="filter() === 'urgent'" (click)="filter.set('urgent')">
+        Urgentes
+      </button>
+    </div>
+    <div class="cluster mt">
+      <ui-avatar name="Ana Pérez" size="xs" /><ui-avatar name="Bruno Díaz" size="sm" /><ui-avatar
+        name="Carla"
+      />
+      <ui-avatar name="David Ruiz" size="lg" /><ui-spinner /><ui-spinner size="lg" />
+      <ui-money-text [amount]="1234567" /><ui-money-text [amount]="-45000" signed /><ui-money-text
+        [amount]="98000"
+        signed
+      />
+    </div>
+    <div class="stack mt">
+      <ui-progress-bar [value]="72" label="Recaudo" />
+      <ui-progress-bar [value]="35" mode="auto" label="Recaudo bajo" />
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <h3 class="ui-card__title">Íconos ({{ iconNames.length }})</h3>
+    <div class="icons">
+      @for (name of iconNames; track name) {
+        <span class="icon-cell" [title]="name"
+          ><ui-icon [name]="name" [size]="22" /><small>{{ name }}</small></span
+        >
+      }
+    </div>
+  </section>
+
+  <h2 class="level">Moléculas</h2>
+
+  <section class="ui-card">
+    <h3 class="ui-card__title">Formulario (form-field + controles)</h3>
+    <form [formGroup]="form" (ngSubmit)="submitForm()" class="form-grid" novalidate>
+      <ui-form-field label="Nombre completo" hint="Mínimo 3 caracteres" required>
+        <ui-input formControlName="name" placeholder="Ej. Ana Pérez" />
+      </ui-form-field>
+      <ui-form-field label="Correo" required>
+        <ui-input
+          formControlName="email"
+          type="email"
+          icon="envelope"
+          placeholder="usuario@apreu.co"
+        />
+      </ui-form-field>
+      <ui-form-field label="Rol" required>
+        <ui-select formControlName="role" [options]="roleOptions" placeholder="Seleccione un rol" />
+      </ui-form-field>
+      <ui-form-field label="Periodo">
+        <ui-date-range formControlName="range" />
+      </ui-form-field>
+      <ui-form-field label="Observaciones" class="full">
+        <ui-textarea formControlName="notes" [maxlength]="200" placeholder="Notas internas…" />
+      </ui-form-field>
+      <ui-checkbox formControlName="active">Usuario activo</ui-checkbox>
+      <div class="full cluster end">
+        <button ui-button type="button" variant="secondary" (click)="form.reset()">Limpiar</button>
+        <button ui-button type="submit" variant="primary" icon="check">Validar</button>
+      </div>
+    </form>
+  </section>
+
+  <section class="grid grid--4">
+    <ui-stat-card
+      label="Ingresos hoy"
+      value="$ 2.450.000"
+      hint="12 pagos · Al día de hoy"
+      icon="banknotes"
+      [delta]="8.4"
+    />
+    <ui-stat-card
+      label="Total vencido"
+      value="$ 18.900.000"
+      hint="37 deudores"
+      icon="exclamation-triangle"
+      tone="danger"
+      link="/dev/ui"
+      linkLabel="Ver cartera"
+    />
+    <ui-stat-card label="Usuarios" [value]="128" variant="border" tone="info" />
+    <ui-stat-card label="Cargando" variant="border" tone="warning" loading />
+  </section>
+
+  <section class="ui-card stack">
+    <h3 class="ui-card__title">Alertas, búsqueda, paginación y vacío</h3>
+    <ui-alert tone="success" title="Guardado">La configuración se guardó correctamente.</ui-alert>
+    <ui-alert tone="error" dismissible>No se pudo conectar con el servidor.</ui-alert>
+    <ui-alert tone="warning">Tu sesión expirará pronto.</ui-alert>
+    <ui-alert tone="info">Los indicadores se actualizan cada hora.</ui-alert>
+    <ui-search-box
+      [(value)]="search"
+      placeholder="Buscar por nombre o email…"
+      (search)="lastAction.set('Buscar: ' + $event)"
+    />
+    <ui-pagination
+      [page]="page()"
+      [pageSize]="pageSize()"
+      [total]="245"
+      (pageChange)="onPage($event)"
+    />
+    <ui-empty-state
+      icon="inbox"
+      title="No se encontraron alumnos"
+      message="Modifica los filtros o registra el primer alumno."
+    >
+      <button ui-button variant="primary" icon="plus">Nuevo alumno</button>
+    </ui-empty-state>
+  </section>
+
+  <h2 class="level">Organismos</h2>
+
+  <ui-filter-bar
+    [showClear]="!!search()"
+    (apply)="lastAction.set('Filtrar')"
+    (clear)="search.set('')"
+  >
+    <ui-search-box [(value)]="search" placeholder="Buscar…" />
+    <ui-select [options]="roleOptions" placeholder="Todos los roles" ariaLabel="Rol" />
+  </ui-filter-bar>
+
+  <ui-data-table
+    class="mt"
+    [columns]="columns"
+    [rows]="rows"
+    [actions]="actions"
+    selectable
+    [(sort)]="sort"
+    [(selection)]="selection"
+    caption="Usuarios de ejemplo"
+    (action)="lastAction.set($event.action + ': ' + $event.row.name)"
+  >
+    <ng-template uiCell="name" let-row>
+      <span class="cluster nowrap"
+        ><ui-avatar [name]="row.name" size="sm" /><strong>{{ row.name }}</strong></span
+      >
+    </ng-template>
+    <ng-template uiCell="status" let-value="value"><ui-badge [status]="$any(value)" /></ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="1"
+      [pageSize]="10"
+      [total]="rows.length"
+      [pageSizeOptions]="[]"
+    />
+  </ui-data-table>
+  <p class="text-muted mt">
+    Seleccionadas: {{ selection().length }} · Última acción: {{ lastAction() || '—' }}
+  </p>
+
+  <ui-data-table
+    class="mt"
+    [columns]="columns"
+    [rows]="[]"
+    emptyTitle="Sin usuarios"
+    emptyMessage="Crea el primero."
+  />
+
+  <section class="ui-card mt">
+    <ui-tabs [tabs]="tabs" [(active)]="tab">
+      @switch (tab()) {
+        @case ('a') {
+          <p>Contenido de la pestaña Empresa.</p>
+        }
+        @case ('b') {
+          <p>Contenido de la pestaña Académico.</p>
+        }
+        @default {
+          <p>Contenido de DIAN.</p>
+        }
+      }
+    </ui-tabs>
+    <div class="mt">
+      <ui-tabs [tabs]="tabs.slice(0, 3)" [(active)]="tab" variant="pill"><span></span></ui-tabs>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <h3 class="ui-card__title">Modal y diálogos</h3>
+    <div class="cluster">
+      <button ui-button variant="primary" (click)="modalOpen.set(true)">Abrir modal</button>
+      <button ui-button variant="danger" (click)="confirmDemo()">Confirmación</button>
+      <button ui-button (click)="toastDemo('success')">Toast éxito</button>
+      <button ui-button (click)="toastDemo('error')">Toast error</button>
+      <button ui-button (click)="toastDemo('warning')">Toast aviso</button>
+      <button ui-button (click)="toastDemo('info')">Toast info</button>
+    </div>
+  </section>
+
+  <ui-modal [(open)]="modalOpen" title="Nuevo usuario" description="Completa los datos básicos.">
+    <ui-form-field label="Nombre"><ui-input placeholder="Nombre completo" /></ui-form-field>
+    <ng-container uiModalFooter>
+      <button ui-button variant="secondary" (click)="modalOpen.set(false)">Cancelar</button>
+      <button ui-button variant="primary" (click)="modalOpen.set(false)">Crear</button>
+    </ng-container>
+  </ui-modal>
+
+  <section class="grid grid--3">
+    <article class="ui-card span-2">
+      <h3 class="ui-card__title">Barras · una serie</h3>
+      <ui-bar-chart
+        [labels]="months"
+        [series]="income"
+        ariaLabel="Ingresos mensuales"
+        [valueFormat]="copFormatter"
+      />
+    </article>
+    <article class="ui-card">
+      <h3 class="ui-card__title">Dona</h3>
+      <ui-donut-chart
+        [data]="levels"
+        [height]="192"
+        centerLabel="Alumnos"
+        ariaLabel="Alumnos por nivel"
+      />
+    </article>
+    <article class="ui-card span-2">
+      <h3 class="ui-card__title">Líneas · dos series</h3>
+      <ui-line-chart [labels]="months" [series]="compare" ariaLabel="Comparativo de matrículas" />
+    </article>
+    <article class="ui-card">
+      <h3 class="ui-card__title">Barras agrupadas</h3>
+      <ui-bar-chart [labels]="months" [series]="compare" [height]="200" ariaLabel="Comparativo" />
+    </article>
+  </section>
+
+  <h2 class="level">Hoja imprimible</h2>
+  <ui-printable-sheet
+    institutionName="Colegio Demo Apreu"
+    nit="900.123.456-7"
+    address="Calle 10 # 20-30"
+    city="Bogotá D.C."
+    documentTitle="Recibo de caja"
+    documentNumber="RC-000123"
+    issuedAt="16/10/2026"
+  >
+    <p>
+      Recibimos de <strong>Ana Pérez</strong> la suma de <strong>{{ cop(350000) }}</strong> por
+      concepto de pensión de octubre.
+    </p>
+    <p uiSheetFooter>Documento generado por Apreu ERP.</p>
+  </ui-printable-sheet>
+</div>

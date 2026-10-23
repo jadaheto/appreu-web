@@ -1,0 +1,105 @@
+// Estilos compartidos por las páginas de Contabilidad.
+:host {
+  display: block;
+}
+.mb {
+  margin-bottom: var(--space-6);
+}
+.form-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .form-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .form-grid .full {
+    grid-column: 1 / -1;
+  }
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.num {
+  text-align: right;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.muted {
+  color: var(--color-text-muted);
+}
+.strike {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.dl {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 0.5rem 1rem;
+  font-size: var(--text-sm);
+  dt {
+    color: var(--color-text-muted);
+    font-weight: 600;
+  }
+  dd {
+    margin: 0;
+    color: var(--color-text-strong);
+  }
+}
+.simple-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+  th,
+  td {
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--color-border-soft);
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+    background: var(--color-surface-2);
+  }
+  tfoot td {
+    font-weight: 700;
+    border-top: 2px solid var(--color-border);
+    color: var(--color-text-strong);
+  }
+  .num {
+    text-align: right;
+  }
+  tr.section td {
+    background: var(--color-surface-2);
+    font-weight: 700;
+    color: var(--color-text-strong);
+  }
+  tr.subtotal td {
+    font-weight: 700;
+  }
+}
+.scroll-x {
+  overflow-x: auto;
+}
+:host ::ng-deep tr.is-voided td {
+  text-decoration: line-through;
+  opacity: 0.55;
+}
+:host ::ng-deep tr.is-muted td {
+  opacity: 0.55;
+}
+@media print {
+  .no-print {
+    display: none !important;
+  }
+}

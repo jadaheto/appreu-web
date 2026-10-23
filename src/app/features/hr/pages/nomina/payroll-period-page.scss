@@ -1,0 +1,80 @@
+.mb {
+  display: block;
+  margin-bottom: var(--space-5);
+}
+.small {
+  font-size: var(--text-xs);
+}
+.timeline {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+  margin: 0 0 var(--space-5);
+}
+.timeline li {
+  flex: 1;
+  min-width: 10rem;
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  border: 1px dashed var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.timeline li.done {
+  border-style: solid;
+  border-color: var(--color-success-border);
+  background: var(--color-success-bg);
+  color: var(--color-success);
+}
+.warnings {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+.plus {
+  color: var(--color-success);
+}
+.minus {
+  color: var(--color-danger);
+}
+.breakdown {
+  display: grid;
+  gap: var(--space-5);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .breakdown {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+.breakdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: var(--text-sm);
+}
+.breakdown caption {
+  text-align: left;
+  font-weight: 800;
+  padding-bottom: var(--space-2);
+}
+.breakdown td {
+  padding: 0.3rem 0;
+  border-bottom: 1px solid var(--color-border-soft);
+}
+.breakdown .num {
+  text-align: right;
+  font-family: var(--font-mono);
+  white-space: nowrap;
+}
+.breakdown tfoot td {
+  font-weight: 800;
+  border-bottom: 0;
+}
+.net-line {
+  margin: var(--space-5) 0;
+  font-size: var(--text-lg);
+  text-align: right;
+}

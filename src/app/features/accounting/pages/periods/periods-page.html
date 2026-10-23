@@ -1,0 +1,95 @@
+<div class="page-header">
+  <div>
+    <h1>Periodos contables</h1>
+    <p class="page-header__subtitle">Los asientos solo se registran en periodos abiertos</p>
+  </div>
+  <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nuevo periodo</button>
+</div>
+
+@if (periods.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar los periodos" class="mb">
+    <button ui-button size="sm" variant="ghost" (click)="periods.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Periodos contables"
+  [columns]="columns"
+  [rows]="rows()"
+  [actions]="actions()"
+  [loading]="periods.isLoading()"
+  emptyTitle="No hay periodos"
+  emptyMessage="Crea el periodo del mes para empezar a contabilizar."
+  (action)="onAction($event)"
+>
+  <ng-template uiCell="startDate" let-value="value">{{ $any(value) | day }}</ng-template>
+  <ng-template uiCell="endDate" let-value="value">{{ $any(value) | day }}</ng-template>
+  <ng-template uiCell="status" let-value="value"
+    ><ui-badge [status]="$any(value)" dot
+  /></ng-template>
+  <ng-template uiCell="history" let-row>
+    @if (row.reopenedAt) {
+      <span class="muted"
+        >Reabierto {{ row.reopenedAt | dateEs: 'datetime' }}: {{ row.reopenReason }}</span
+      >
+    } @else if (row.closedAt) {
+      <span class="muted">Cerrado {{ row.closedAt | dateEs: 'datetime' }}</span>
+    } @else {
+      <span class="muted">—</span>
+    }
+  </ng-template>
+</ui-data-table>
+
+<ui-modal [(open)]="createOpen" title="Nuevo periodo contable">
+  <form id="period-form" class="form-grid" [formGroup]="form" (ngSubmit)="create()" novalidate>
+    @if (serverError()) {
+      <ui-alert tone="error" class="full">{{ serverError() }}</ui-alert>
+    }
+    <ui-form-field label="Nombre" required class="full">
+      <ui-input formControlName="name" placeholder="Ej. Enero 2026" />
+    </ui-form-field>
+    <ui-form-field label="Fecha de inicio" required>
+      <ui-input type="date" formControlName="startDate" />
+    </ui-form-field>
+    <ui-form-field
+      label="Fecha de fin"
+      required
+      [error]="
+        form.hasError('range') && form.touched
+          ? 'La fecha de fin debe ser posterior al inicio.'
+          : null
+      "
+    >
+      <ui-input type="date" formControlName="endDate" />
+    </ui-form-field>
+    <p class="muted full">La API rechaza periodos que se solapen con otros existentes.</p>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="createOpen.set(false)">Cancelar</button>
+    <button ui-button variant="primary" type="submit" form="period-form" [loading]="saving()">
+      Crear periodo
+    </button>
+  </ng-container>
+</ui-modal>
+
+<ui-modal
+  [(open)]="reopenOpen"
+  [title]="'Reabrir ' + (reopenTarget()?.name ?? '')"
+  description="La reapertura queda auditada con el motivo indicado."
+>
+  <form id="reopen-form" (submit)="$event.preventDefault(); reopen()" novalidate>
+    <ui-form-field label="Motivo" required>
+      <ui-textarea
+        [formControl]="reasonCtrl"
+        [maxlength]="255"
+        placeholder="Ej. Ajuste de causación solicitado por revisoría fiscal"
+      />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="reopenOpen.set(false)">Cancelar</button>
+    <button ui-button variant="danger" type="submit" form="reopen-form" [loading]="reopening()">
+      Reabrir periodo
+    </button>
+  </ng-container>
+</ui-modal>

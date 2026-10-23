@@ -1,0 +1,49 @@
+:host {
+  display: block;
+}
+.mb {
+  margin-bottom: var(--space-6);
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.muted {
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+}
+.item-name {
+  font-weight: 600;
+  color: var(--color-text-strong);
+}
+.stock {
+  font-family: var(--font-mono);
+  font-weight: 700;
+}
+.stock.out {
+  color: var(--color-danger);
+}
+.stock.low {
+  color: var(--color-warning);
+}
+.stock.ok {
+  color: var(--color-success);
+}
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  align-items: center;
+}
+.kpi-button {
+  all: unset;
+  display: block;
+  cursor: pointer;
+  border-radius: var(--radius-lg);
+}
+.kpi-button:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+:host ::ng-deep tr.is-muted td {
+  opacity: 0.55;
+}

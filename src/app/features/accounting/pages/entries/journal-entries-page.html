@@ -1,0 +1,72 @@
+<div class="page-header">
+  <div>
+    <h1>Comprobantes contables</h1>
+    <p class="page-header__subtitle">Asientos manuales y automáticos con partida doble</p>
+  </div>
+  <a ui-button variant="primary" icon="plus" [routerLink]="base + '/asientos/nuevo'"
+    >Nuevo comprobante</a
+  >
+</div>
+
+<ui-filter-bar class="mb" showClear (apply)="apply()" (clear)="clear()">
+  <ui-form-field label="Desde">
+    <ui-input type="date" [ngModel]="from()" (ngModelChange)="from.set(str($event))" />
+  </ui-form-field>
+  <ui-form-field label="Hasta" [error]="rangeInvalid() ? 'Debe ser posterior a «Desde».' : null">
+    <ui-input type="date" [ngModel]="to()" (ngModelChange)="to.set(str($event))" />
+  </ui-form-field>
+  <ui-form-field label="Tipo">
+    <ui-select
+      placeholder="Todos"
+      [options]="typeOptions"
+      [ngModel]="type()"
+      (ngModelChange)="type.set($event)"
+    />
+  </ui-form-field>
+  <ui-form-field label="Estado">
+    <ui-select
+      placeholder="Todos"
+      [options]="statusOptions"
+      [ngModel]="status()"
+      (ngModelChange)="status.set($event)"
+    />
+  </ui-form-field>
+</ui-filter-bar>
+
+@if (result.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar los comprobantes" class="mb">
+    <button ui-button size="sm" variant="ghost" (click)="result.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Comprobantes contables"
+  [columns]="columns"
+  [rows]="page()?.items ?? []"
+  [loading]="result.isLoading()"
+  [rowClass]="rowClass"
+  rowClickable
+  emptyTitle="Sin asientos en este rango de fechas"
+  (rowClick)="open($event)"
+>
+  <ng-template uiCell="date" let-value="value">{{ $any(value) | day }}</ng-template>
+  <ng-template uiCell="doc" let-row let-value="value">
+    <a [routerLink]="base + '/asientos/' + row.id">{{ value }}</a>
+  </ng-template>
+  <ng-template uiCell="status" let-row>
+    <ui-badge [tone]="statusTones[row.status]">{{ statusLabels[row.status] }}</ui-badge>
+    @if (row.reversalOfId) {
+      <ui-badge tone="info">Reversión</ui-badge>
+    }
+    @if (row.sourceType) {
+      <ui-badge tone="neutral">Automático</ui-badge>
+    }
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page ?? 1"
+    [pageSize]="filters().pageSize ?? 20"
+    [total]="page()?.total ?? 0"
+    (pageChange)="onPage($event)"
+  />
+</ui-data-table>

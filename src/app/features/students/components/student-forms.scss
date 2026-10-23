@@ -1,0 +1,18 @@
+.fields {
+  display: grid;
+  gap: var(--space-4) var(--space-5);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 640px) {
+  .fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .wide {
+    grid-column: 1 / -1;
+  }
+}
+@media (min-width: 1024px) {
+  .fields {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}

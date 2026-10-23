@@ -1,0 +1,141 @@
+<div class="page-header">
+  <div>
+    <h1>Control de inventario</h1>
+    <p class="page-header__subtitle">Uniformes, útiles, equipos y materiales de la institución</p>
+  </div>
+  <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nuevo ítem</button>
+</div>
+
+<section class="grid grid--4 mb" aria-label="Indicadores de inventario">
+  <ui-stat-card
+    label="Total ítems"
+    icon="cube"
+    tone="primary"
+    [loading]="kpis.isLoading()"
+    [value]="kpi()?.totalItems ?? null"
+    hint="Ítems activos"
+  />
+  <ui-stat-card
+    label="Valor del inventario"
+    icon="banknotes"
+    tone="success"
+    [loading]="kpis.isLoading()"
+    [value]="kpi() ? cop(kpi()!.inventoryValue) : null"
+    hint="Costo promedio × stock"
+  />
+  <button
+    type="button"
+    class="kpi-button"
+    aria-label="Filtrar ítems con stock bajo"
+    (click)="filterAlert('low')"
+  >
+    <ui-stat-card
+      label="Stock bajo"
+      icon="exclamation-triangle"
+      tone="warning"
+      [loading]="kpis.isLoading()"
+      [value]="kpi()?.lowStock ?? null"
+      hint="Clic para filtrar"
+    />
+  </button>
+  <button
+    type="button"
+    class="kpi-button"
+    aria-label="Filtrar ítems sin stock"
+    (click)="filterAlert('out')"
+  >
+    <ui-stat-card
+      label="Sin stock"
+      icon="exclamation-circle"
+      tone="danger"
+      [loading]="kpis.isLoading()"
+      [value]="kpi()?.outOfStock ?? null"
+      hint="Clic para filtrar"
+    />
+  </button>
+</section>
+
+<ui-filter-bar class="mb" [showClear]="hasFilters()" (apply)="apply()" (clear)="clear()">
+  <ui-search-box
+    placeholder="Nombre o SKU…"
+    ariaLabel="Buscar ítems"
+    [value]="search()"
+    (valueChange)="search.set($event)"
+    (search)="search.set($event); apply()"
+  />
+  <ui-select
+    ariaLabel="Categoría"
+    placeholder="Todas las categorías"
+    [options]="categoryOptions()"
+    [ngModel]="categoryId()"
+    (ngModelChange)="categoryId.set($event)"
+  />
+  <ui-select
+    ariaLabel="Alertas"
+    placeholder="Todos los niveles de stock"
+    [options]="alertOptions"
+    [ngModel]="alert()"
+    (ngModelChange)="alert.set($event)"
+  />
+  <ui-checkbox [ngModel]="includeInactive()" (ngModelChange)="includeInactive.set($event)"
+    >Incluir inactivos</ui-checkbox
+  >
+</ui-filter-bar>
+
+@if (result.error()) {
+  <ui-alert tone="error" class="mb" title="No se pudo cargar el inventario">
+    <button ui-button size="sm" variant="ghost" (click)="result.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Ítems de inventario"
+  [columns]="columns"
+  [rows]="page()?.items ?? []"
+  [actions]="actions"
+  [loading]="result.isLoading()"
+  [rowClass]="rowClass"
+  emptyTitle="No hay ítems"
+  emptyIcon="cube"
+  emptyMessage="Crea el primer ítem o ajusta los filtros."
+  (action)="onAction($event)"
+>
+  <ng-template uiCell="name" let-row>
+    <span class="item-name">{{ row.name }}</span>
+    @if (row.location) {
+      <br /><span class="muted">{{ row.location }}</span>
+    }
+    @if (!row.isActive) {
+      <ui-badge status="inactive" />
+    }
+  </ng-template>
+  <ng-template uiCell="stock" let-row>
+    <span class="stock" [class]="'stock ' + row.stockStatus">{{ row.stock }}</span>
+    <span class="muted"> {{ row.unit }}</span>
+  </ng-template>
+  <ng-template uiCell="stockStatus" let-row>
+    <ui-badge [tone]="statusTones[$any(row).stockStatus]">{{
+      statusLabels[$any(row).stockStatus]
+    }}</ui-badge>
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page ?? 1"
+    [pageSize]="filters().pageSize ?? 20"
+    [total]="page()?.total ?? 0"
+    (pageChange)="onPage($event)"
+  />
+</ui-data-table>
+
+<app-item-form-dialog
+  [(open)]="itemOpen"
+  [item]="editing()"
+  [categories]="categoryList()"
+  (saved)="refresh()"
+/>
+<app-stock-movement-dialog
+  [(open)]="moveOpen"
+  [item]="moving()"
+  [initialType]="moveType()"
+  (saved)="refresh()"
+/>

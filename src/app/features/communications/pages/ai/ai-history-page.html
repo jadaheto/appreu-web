@@ -1,0 +1,46 @@
+<div class="page-header">
+  <div>
+    <h1>Mi historial de Apreu IA</h1>
+    <p class="page-header__subtitle">
+      Conversa con el asistente y consulta tus conversaciones anteriores.
+    </p>
+  </div>
+</div>
+
+<div class="layout">
+  <section aria-label="Chat con el asistente">
+    <app-ai-chat (answered)="onAnswered()" />
+  </section>
+
+  <section class="ui-card" aria-labelledby="history-title">
+    <h2 id="history-title" class="ui-card__title">Conversaciones anteriores</h2>
+    @if (history.isLoading() && !val(history)) {
+      <ui-spinner size="lg" />
+    } @else if (history.error()) {
+      <ui-alert tone="error">No se pudo cargar el historial.</ui-alert>
+    } @else if (val(history)?.items?.length) {
+      <div class="list mb">
+        @for (x of val(history)!.items; track x.id) {
+          <article class="exchange">
+            <span class="when">{{ x.createdAt | dateEs: 'datetime' }}</span>
+            <p class="question">Tú preguntaste: “{{ x.userMessage }}”</p>
+            <div class="answer" [innerHTML]="x.aiResponse | markdownLite"></div>
+          </article>
+        }
+      </div>
+      <ui-pagination
+        [page]="val(history)!.page"
+        [pageSize]="query().pageSize ?? 15"
+        [pageSizeOptions]="[15, 30, 60]"
+        [total]="val(history)!.total"
+        (pageChange)="changePage($event)"
+      />
+    } @else {
+      <ui-empty-state
+        icon="chat-bubble"
+        title="Historial vacío"
+        message="Aún no tienes conversaciones registradas. Escríbele al asistente para empezar."
+      />
+    }
+  </section>
+</div>

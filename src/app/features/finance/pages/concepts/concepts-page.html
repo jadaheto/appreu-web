@@ -1,0 +1,233 @@
+<div class="page-header">
+  <div>
+    <h1>Conceptos y tarifas</h1>
+    <p class="page-header__subtitle">Catálogo de conceptos de cobro y mensualidades por grado.</p>
+  </div>
+</div>
+
+@if (!isAdmin()) {
+  <ui-alert tone="info" class="mb"
+    >Solo el administrador puede crear o modificar conceptos y tarifas.</ui-alert
+  >
+}
+
+<ui-tabs [tabs]="tabs" [(active)]="tab" ariaLabel="Configuración de cobros">
+  <div class="panel">
+    @switch (tab()) {
+      @case ('conceptos') {
+        @if (isAdmin()) {
+          <div class="toolbar">
+            <span></span>
+            <button ui-button variant="primary" icon="plus" (click)="openNew()">
+              Nuevo concepto
+            </button>
+          </div>
+        }
+        <ui-data-table
+          [columns]="columns"
+          [rows]="val(concepts) ?? []"
+          [loading]="concepts.isLoading()"
+          [actions]="actions()"
+          caption="Conceptos de cobro"
+          emptyTitle="Sin conceptos"
+          emptyMessage="Crea el primer concepto de cobro (pensión, matrícula, transporte…)."
+          (action)="onAction($event)"
+        >
+          <ng-template uiCell="name" let-row>
+            <strong>{{ row.name }}</strong>
+            @if (row.description) {
+              <small class="text-muted">{{ row.description }}</small>
+            }
+          </ng-template>
+          <ng-template uiCell="isActive" let-row>
+            <ui-badge [status]="row.isActive ? 'active' : 'inactive'" />
+          </ng-template>
+        </ui-data-table>
+        @if (concepts.error()) {
+          <ui-alert tone="error">No se pudieron cargar los conceptos.</ui-alert>
+        }
+      }
+      @case ('tarifas') {
+        <div class="toolbar">
+          <form class="cluster" (submit)="$event.preventDefault(); consultYear()">
+            <ui-input
+              class="year"
+              type="number"
+              ariaLabel="Año académico"
+              min="2000"
+              max="2100"
+              [ngModel]="yearDraft()"
+              (ngModelChange)="yearDraft.set($event)"
+              [ngModelOptions]="{ standalone: true }"
+            />
+            <button ui-button type="submit" icon="magnifying-glass">Consultar</button>
+          </form>
+          @if (loadedYear()) {
+            <span class="text-muted"
+              >Año académico <strong>{{ loadedYear() }}</strong></span
+            >
+          }
+        </div>
+
+        @if (!gradeOptions().length && !grades.isLoading()) {
+          <ui-alert tone="warning" class="mb">
+            El catálogo de grados no está disponible para tu rol; se muestran los identificadores de
+            grado.
+          </ui-alert>
+        }
+
+        <form class="ui-card" [formGroup]="ratesForm" (ngSubmit)="saveRates()" novalidate>
+          @if (schedule.isLoading()) {
+            <p class="text-muted">Cargando tarifas…</p>
+          } @else if (schedule.error()) {
+            <ui-alert tone="error">No se pudieron cargar las tarifas.</ui-alert>
+          } @else {
+            @if (rates.length) {
+              <div class="scroll">
+                <table class="rates" formArrayName="rates">
+                  <caption class="sr-only">
+                    Mensualidades por grado
+                  </caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Grado</th>
+                      <th scope="col">Concepto</th>
+                      <th scope="col">Monto mensual</th>
+                      @if (isAdmin()) {
+                        <th scope="col"><span class="sr-only">Acciones</span></th>
+                      }
+                    </tr>
+                  </thead>
+                  <tbody>
+                    @for (row of rates.controls; track row; let i = $index) {
+                      <tr [formGroupName]="i">
+                        <td>
+                          @if (gradeOptions().length) {
+                            <ui-select
+                              formControlName="gradeId"
+                              [options]="gradeOptions()"
+                              [ariaLabel]="'Grado fila ' + (i + 1)"
+                            />
+                          } @else {
+                            <ui-input
+                              type="number"
+                              formControlName="gradeId"
+                              min="1"
+                              mono
+                              [ariaLabel]="'ID de grado fila ' + (i + 1)"
+                            />
+                          }
+                        </td>
+                        <td>
+                          <ui-select
+                            formControlName="conceptId"
+                            [options]="rateConceptOptions()"
+                            [placeholder]="null"
+                            [ariaLabel]="'Concepto fila ' + (i + 1)"
+                          />
+                        </td>
+                        <td>
+                          <ui-input
+                            type="number"
+                            formControlName="amount"
+                            prefix="$"
+                            min="0"
+                            step="1000"
+                            mono
+                            [ariaLabel]="'Monto fila ' + (i + 1)"
+                          />
+                        </td>
+                        @if (isAdmin()) {
+                          <td>
+                            <button
+                              ui-button
+                              type="button"
+                              variant="ghost"
+                              size="sm"
+                              iconOnly
+                              icon="trash"
+                              [attr.aria-label]="'Eliminar fila ' + (i + 1)"
+                              (click)="removeRate(i)"
+                            ></button>
+                          </td>
+                        }
+                      </tr>
+                    }
+                  </tbody>
+                </table>
+              </div>
+            } @else {
+              <ui-empty-state
+                icon="academic-cap"
+                title="Sin tarifas para el año"
+                message="Agrega una fila por grado con su mensualidad."
+              />
+            }
+            @if (ratesError()) {
+              <ui-alert tone="error">{{ ratesError() }}</ui-alert>
+            }
+            @if (isAdmin()) {
+              <div class="toolbar" style="margin-top: var(--space-4); margin-bottom: 0">
+                <button ui-button type="button" icon="plus" (click)="addRate()">
+                  Agregar fila
+                </button>
+                <button
+                  ui-button
+                  type="submit"
+                  variant="primary"
+                  icon="check"
+                  [loading]="savingRates()"
+                  [disabled]="!loadedYear()"
+                >
+                  Guardar tarifas
+                </button>
+              </div>
+            }
+          }
+        </form>
+      }
+    }
+  </div>
+</ui-tabs>
+
+<ui-modal [(open)]="modalOpen" [title]="editing() ? 'Editar concepto' : 'Nuevo concepto'" size="lg">
+  <form id="concept-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="grid grid--2">
+      <ui-form-field label="Nombre" required>
+        <ui-input formControlName="name" [maxlength]="200" />
+      </ui-form-field>
+      <ui-form-field label="Código">
+        <ui-input formControlName="code" [maxlength]="30" mono />
+      </ui-form-field>
+      <ui-form-field label="Categoría">
+        <ui-select formControlName="category" [options]="categoryOptions" />
+      </ui-form-field>
+      <ui-form-field label="Monto base" required>
+        <ui-input type="number" formControlName="amount" prefix="$" min="0" step="1000" mono />
+      </ui-form-field>
+      <ui-form-field label="% IVA" hint="Servicios educativos: 0 %">
+        <ui-input
+          type="number"
+          formControlName="taxRate"
+          suffix="%"
+          min="0"
+          max="100"
+          step="0.01"
+          mono
+        />
+      </ui-form-field>
+    </div>
+    <ui-form-field label="Descripción">
+      <ui-textarea formControlName="description" [rows]="2" [maxlength]="255" />
+    </ui-form-field>
+    @if (formError()) {
+      <ui-alert tone="error">{{ formError() }}</ui-alert>
+    }
+  </form>
+  <div uiModalFooter class="modal-actions">
+    <button ui-button type="button" variant="ghost" (click)="modalOpen.set(false)">Cancelar</button>
+    <button ui-button type="submit" form="concept-form" variant="primary" [loading]="saving()">
+      Guardar
+    </button>
+  </div>
+</ui-modal>

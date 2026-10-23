@@ -1,0 +1,243 @@
+<div class="page-header">
+  <div>
+    <h1>Caja</h1>
+    <p class="page-header__subtitle">Registra pagos y genera el recibo de caja.</p>
+  </div>
+</div>
+
+<div class="ui-card search-card">
+  <app-student-search
+    label="Buscar estudiante para registrar el pago"
+    (selected)="selectStudent($event)"
+  />
+</div>
+
+@if (result(); as r) {
+  <ui-alert tone="success" title="Pago registrado" class="mb" role="status">
+    <p>
+      Recibo <strong class="font-mono">{{ r.receiptNumber }}</strong> por
+      <strong>{{ r.amount | cop }}</strong
+      >. Aplicado: {{ r.appliedAmount | cop }}
+      @if (r.unappliedAmount > 0) {
+        · Saldo a favor generado: {{ r.unappliedAmount | cop }}
+      }
+    </p>
+    @if (r.applications.length) {
+      <ul class="applied">
+        @for (a of r.applications; track a.chargeId) {
+          <li>
+            {{ a.conceptName }} — {{ a.amount | cop }}
+            <span class="text-muted">(queda {{ a.chargePending | cop }})</span>
+          </li>
+        }
+      </ul>
+    }
+    <a
+      ui-button
+      size="sm"
+      variant="primary"
+      icon="printer"
+      [routerLink]="['../recibos', r.receiptNumber]"
+    >
+      Ver e imprimir recibo
+    </a>
+  </ui-alert>
+}
+
+@if (!currentId()) {
+  <div class="ui-card">
+    <ui-empty-state
+      icon="banknotes"
+      title="Selecciona un estudiante"
+      message="Busca por nombre, código o documento para ver sus cobros pendientes."
+    />
+  </div>
+} @else if (statement.isLoading() && !st()) {
+  <div class="center"><ui-spinner size="lg" /></div>
+} @else if (loadError()) {
+  <ui-alert tone="error" title="No se pudo cargar el estudiante">{{ loadError() }}</ui-alert>
+} @else if (st(); as s) {
+  <div class="layout">
+    <form class="stack" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+      <section class="ui-card" aria-labelledby="pending-title">
+        <div class="section-head">
+          <h2 class="ui-card__title" id="pending-title">Cobros pendientes</h2>
+          <div class="cluster" role="group" aria-label="Forma de aplicar el pago">
+            <button ui-chip type="button" [active]="mode() === 'auto'" (click)="setMode('auto')">
+              Más antiguos primero
+            </button>
+            <button
+              ui-chip
+              type="button"
+              [active]="mode() === 'select'"
+              (click)="setMode('select')"
+            >
+              Seleccionar cobros
+            </button>
+          </div>
+        </div>
+
+        @if (openCharges().length) {
+          @if (mode() === 'select') {
+            <button ui-button type="button" size="sm" variant="ghost" (click)="toggleAll()">
+              {{
+                selected().size === openCharges().length ? 'Quitar selección' : 'Seleccionar todos'
+              }}
+            </button>
+          }
+          <ul class="charges">
+            @for (c of openCharges(); track c.id) {
+              <li [class.selected]="selected().has(c.id)">
+                @if (mode() === 'select') {
+                  <ui-checkbox
+                    [ariaLabel]="'Seleccionar ' + c.description"
+                    [checked]="selected().has(c.id)"
+                    (checkedChange)="toggle(c, $event)"
+                  />
+                }
+                <div class="info">
+                  <strong>{{ c.description }}</strong>
+                  <small class="text-muted">
+                    Vence {{ fmtDay(c.dueDate) }}
+                    @if (c.paidAmount > 0) {
+                      · Pagado {{ c.paidAmount | cop }}
+                    }
+                  </small>
+                </div>
+                <ui-badge [tone]="statusTone(c)">{{
+                  c.isOverdue ? 'Vencido' : statusLabel(c)
+                }}</ui-badge>
+                <span class="amount font-mono">{{ c.pendingAmount | cop }}</span>
+              </li>
+            }
+          </ul>
+          <p class="total">
+            @if (mode() === 'select') {
+              Total seleccionado: <strong class="font-mono">{{ selectedTotal() | cop }}</strong>
+            } @else {
+              Total pendiente: <strong class="font-mono">{{ totalPending() | cop }}</strong>
+              <button
+                ui-button
+                type="button"
+                size="xs"
+                variant="ghost"
+                (click)="useTotal(totalPending())"
+              >
+                Usar este valor
+              </button>
+            }
+          </p>
+          @if (mode() === 'auto') {
+            <p class="hint text-muted">
+              El pago se aplica automáticamente a los cobros con vencimiento más antiguo.
+            </p>
+          }
+        } @else {
+          <ui-empty-state
+            icon="check-circle"
+            title="Sin cobros pendientes"
+            message="Este estudiante no tiene cobros pendientes. Un pago quedará como saldo a favor."
+          />
+        }
+      </section>
+
+      <section class="ui-card" aria-labelledby="pay-title">
+        <h2 class="ui-card__title" id="pay-title">Datos del pago</h2>
+        <div class="grid grid--2">
+          <ui-form-field label="Fecha de pago" required [errorMessages]="dateMessages">
+            <ui-input type="date" formControlName="paymentDate" [max]="today" />
+          </ui-form-field>
+          <ui-form-field label="Método de pago" required>
+            <ui-select formControlName="method" [options]="methodOptions" />
+          </ui-form-field>
+          <ui-form-field label="Monto recibido" required [errorMessages]="amountMessages">
+            <ui-input
+              type="number"
+              formControlName="amount"
+              prefix="$"
+              min="0"
+              step="100"
+              inputmode="decimal"
+              mono
+              (input)="updateExcess()"
+            />
+          </ui-form-field>
+          <ui-form-field label="Referencia" hint="Número de transacción o comprobante">
+            <ui-input formControlName="reference" [maxlength]="100" />
+          </ui-form-field>
+        </div>
+        <ui-form-field label="Observaciones">
+          <ui-textarea formControlName="notes" [rows]="2" [maxlength]="1000" />
+        </ui-form-field>
+
+        @if (excess() > 0) {
+          <ui-alert tone="warning" class="mt">
+            El monto supera lo pendiente en {{ excess() | cop }}; el excedente quedará como saldo a
+            favor.
+          </ui-alert>
+        }
+        @if (formError()) {
+          <ui-alert tone="error" class="mt">{{ formError() }}</ui-alert>
+        }
+        <div class="actions">
+          <button ui-button type="submit" variant="primary" icon="check" [loading]="saving()">
+            Registrar pago y generar recibo
+          </button>
+        </div>
+      </section>
+    </form>
+
+    <aside class="stack">
+      <section class="ui-card">
+        <app-student-summary-card [student]="s.student" />
+        <a
+          ui-button
+          variant="ghost"
+          size="sm"
+          block
+          icon="eye"
+          routerLink="../estado-cuenta"
+          [queryParams]="{ studentId: s.student.id }"
+          class="mt"
+        >
+          Ver estado de cuenta completo
+        </a>
+      </section>
+      <section class="ui-card" aria-label="Saldos">
+        <dl class="balances">
+          <div>
+            <dt>Saldo pendiente</dt>
+            <dd class="font-mono danger">{{ s.summary.balance | cop }}</dd>
+          </div>
+          <div>
+            <dt>Vencido</dt>
+            <dd class="font-mono">{{ s.summary.overdueBalance | cop }}</dd>
+          </div>
+          <div>
+            <dt>Saldo a favor</dt>
+            <dd class="font-mono success">{{ s.summary.creditBalance | cop }}</dd>
+          </div>
+          <div>
+            <dt>Saldo neto</dt>
+            <dd class="font-mono">{{ s.summary.netBalance | cop }}</dd>
+          </div>
+        </dl>
+        @if (s.summary.creditBalance > 0 && openCharges().length) {
+          <button
+            ui-button
+            type="button"
+            variant="success"
+            size="sm"
+            block
+            icon="check-circle"
+            class="mt"
+            [loading]="applyingCredit()"
+            (click)="applyCredit()"
+          >
+            Aplicar saldo a favor
+          </button>
+        }
+      </section>
+    </aside>
+  </div>
+}

@@ -1,0 +1,115 @@
+<div class="page-header">
+  <div>
+    <h1>Parámetros de nómina</h1>
+    <p class="page-header__subtitle">Valores legales del año usados en la liquidación.</p>
+  </div>
+  <div class="cluster">
+    <ui-select
+      ariaLabel="Año"
+      [options]="yearOptions"
+      [placeholder]="null"
+      [ngModel]="year()"
+      (ngModelChange)="changeYear($event)"
+    />
+    <a ui-button variant="ghost" icon="arrow-left" [routerLink]="base">Nómina</a>
+  </div>
+</div>
+
+@if (loadError()) {
+  <ui-alert tone="error" title="No se pudieron cargar los parámetros">{{ loadError() }}</ui-alert>
+} @else if (!data()) {
+  <div class="ui-card" style="text-align: center"><ui-spinner size="lg" /></div>
+} @else {
+  <form class="ui-card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="cluster mb">
+      @if (data()!.source === 'configured') {
+        <ui-badge tone="success">Configurado por el colegio</ui-badge>
+      } @else {
+        <ui-badge tone="info">Valores legales incorporados</ui-badge>
+      }
+      @if (!canEdit()) {
+        <span class="text-muted">Solo el administrador puede modificar los parámetros.</span>
+      }
+    </div>
+    @if (serverError()) {
+      <ui-alert tone="error" title="No se pudieron guardar" class="mb">{{
+        serverError()
+      }}</ui-alert>
+    }
+
+    <div class="grid grid--3">
+      <ui-form-field label="Salario mínimo (SMMLV)" required>
+        <ui-input type="number" formControlName="minimumWage" prefix="$" [min]="1" mono />
+      </ui-form-field>
+      <ui-form-field label="Auxilio de transporte" required>
+        <ui-input type="number" formControlName="transportAllowance" prefix="$" [min]="1" mono />
+      </ui-form-field>
+      <ui-form-field label="UVT" required>
+        <ui-input type="number" formControlName="uvt" prefix="$" [min]="1" mono />
+      </ui-form-field>
+    </div>
+
+    <h2 class="section-title">Aportes del empleado (%)</h2>
+    <div class="grid grid--4">
+      <ui-form-field label="Salud">
+        <ui-input type="number" formControlName="healthEmployee" suffix="%" step="0.001" mono />
+      </ui-form-field>
+      <ui-form-field label="Pensión">
+        <ui-input type="number" formControlName="pensionEmployee" suffix="%" step="0.001" mono />
+      </ui-form-field>
+    </div>
+
+    <h2 class="section-title">Aportes del empleador y parafiscales (%)</h2>
+    <div class="grid grid--4">
+      <ui-form-field label="Salud">
+        <ui-input type="number" formControlName="healthEmployer" suffix="%" step="0.001" mono />
+      </ui-form-field>
+      <ui-form-field label="Pensión">
+        <ui-input type="number" formControlName="pensionEmployer" suffix="%" step="0.001" mono />
+      </ui-form-field>
+      <ui-form-field label="SENA">
+        <ui-input type="number" formControlName="sena" suffix="%" step="0.001" mono />
+      </ui-form-field>
+      <ui-form-field label="ICBF">
+        <ui-input type="number" formControlName="icbf" suffix="%" step="0.001" mono />
+      </ui-form-field>
+      <ui-form-field label="Caja de compensación">
+        <ui-input type="number" formControlName="ccf" suffix="%" step="0.001" mono />
+      </ui-form-field>
+    </div>
+
+    <h2 class="section-title">ARL por clase de riesgo (%)</h2>
+    <div class="grid grid--4">
+      <ui-form-field label="Clase I"
+        ><ui-input type="number" formControlName="arl1" suffix="%" step="0.001" mono
+      /></ui-form-field>
+      <ui-form-field label="Clase II"
+        ><ui-input type="number" formControlName="arl2" suffix="%" step="0.001" mono
+      /></ui-form-field>
+      <ui-form-field label="Clase III"
+        ><ui-input type="number" formControlName="arl3" suffix="%" step="0.001" mono
+      /></ui-form-field>
+      <ui-form-field label="Clase IV"
+        ><ui-input type="number" formControlName="arl4" suffix="%" step="0.001" mono
+      /></ui-form-field>
+      <ui-form-field label="Clase V"
+        ><ui-input type="number" formControlName="arl5" suffix="%" step="0.001" mono
+      /></ui-form-field>
+    </div>
+
+    <div style="margin-top: var(--space-6)">
+      <ui-checkbox formControlName="employerContributionExemption">
+        Exoneración de aportes (art. 114-1 ET): no se pagan salud del empleador, SENA ni ICBF por
+        trabajadores con menos de 10 SMMLV. Valídelo con el contador.
+      </ui-checkbox>
+    </div>
+
+    @if (canEdit()) {
+      <div class="actions">
+        <button ui-button type="submit" variant="primary" icon="check" [loading]="saving()">
+          Guardar parámetros {{ year() }}
+        </button>
+      </div>
+    }
+  </form>
+}

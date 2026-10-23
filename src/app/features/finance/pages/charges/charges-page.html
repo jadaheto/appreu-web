@@ -1,0 +1,314 @@
+<div class="page-header">
+  <div>
+    <h1>Cobros</h1>
+    <p class="page-header__subtitle">
+      Cuentas de cobro a estudiantes: generación, consulta y anulación.
+    </p>
+  </div>
+</div>
+
+<ui-tabs [tabs]="tabs" [(active)]="tab" ariaLabel="Secciones de cobros">
+  <div class="panel">
+    @switch (tab()) {
+      @case ('listado') {
+        <ui-filter-bar
+          class="mb"
+          [showClear]="hasFilters()"
+          (apply)="applyFilters()"
+          (clear)="clearFilters()"
+        >
+          <ui-search-box
+            placeholder="Estudiante, código o descripción…"
+            ariaLabel="Buscar cobros"
+            [(value)]="draft.search"
+            (search)="applyFilters()"
+          />
+          <ui-select
+            ariaLabel="Concepto"
+            placeholder="Todos los conceptos"
+            [options]="conceptOptions()"
+            [ngModel]="draft.conceptId()"
+            (ngModelChange)="draft.conceptId.set($event)"
+            name="concept"
+          />
+          <ui-select
+            ariaLabel="Estado"
+            placeholder="Todos los estados"
+            [options]="statusOptions"
+            [ngModel]="draft.status()"
+            (ngModelChange)="draft.status.set($event)"
+            name="status"
+          />
+          <ui-input
+            type="month"
+            ariaLabel="Mes"
+            [ngModel]="draft.period()"
+            (ngModelChange)="draft.period.set($event ?? '')"
+            name="period"
+          />
+          <ui-checkbox
+            [checked]="draft.overdueOnly()"
+            (checkedChange)="draft.overdueOnly.set($event)"
+            >Solo vencidos</ui-checkbox
+          >
+        </ui-filter-bar>
+
+        <ui-data-table
+          [columns]="columns"
+          [rows]="rows()"
+          [loading]="list.isLoading()"
+          [actions]="actions"
+          caption="Cobros"
+          emptyTitle="No hay cobros"
+          emptyMessage="Ajusta los filtros o genera cobros nuevos."
+          (action)="onAction($event)"
+        >
+          <ng-template uiCell="studentName" let-row>
+            <strong>{{ row.studentName }}</strong>
+            <small class="text-muted font-mono">{{ row.studentCode }}</small>
+          </ng-template>
+          <ng-template uiCell="conceptName" let-row>
+            {{ row.description }}
+            <small class="text-muted">{{ category(row.conceptCategory) }}</small>
+          </ng-template>
+          <ng-template uiCell="pendingAmount" let-row>
+            <span [class.text-muted]="row.pendingAmount <= 0">{{ row.pendingAmount | cop }}</span>
+          </ng-template>
+          <ng-template uiCell="status" let-row>
+            <ui-badge [tone]="statusTone(row)">{{
+              row.isOverdue && row.status !== 'paid' && row.status !== 'cancelled'
+                ? 'Vencido'
+                : statusLabel(row.status)
+            }}</ui-badge>
+          </ng-template>
+          <ui-pagination
+            uiTableFooter
+            [page]="filters().page ?? 1"
+            [pageSize]="filters().pageSize ?? 20"
+            [total]="val(list)?.total ?? 0"
+            (pageChange)="onPage($event)"
+          />
+        </ui-data-table>
+        @if (list.error()) {
+          <ui-alert tone="error" class="mt">No se pudieron cargar los cobros.</ui-alert>
+        }
+      }
+
+      @case ('masivo') {
+        <form class="ui-card" [formGroup]="batchForm" (ngSubmit)="runPreview()" novalidate>
+          <h2 class="ui-card__title">Generación masiva</h2>
+          <p class="text-muted mb">
+            Crea un cobro del concepto para todos los estudiantes activos (o de un grado). Los que
+            ya tienen el concepto en ese mes se omiten.
+          </p>
+          <div class="grid grid--3">
+            <ui-form-field label="Concepto" required>
+              <ui-select
+                formControlName="conceptId"
+                [options]="conceptOptions()"
+                (change)="resetPreview()"
+              />
+            </ui-form-field>
+            <ui-form-field label="Mes a cobrar" required>
+              <ui-input type="month" formControlName="period" (input)="resetPreview()" />
+            </ui-form-field>
+            <ui-form-field label="Fecha de vencimiento" hint="Por defecto, último día del mes">
+              <ui-input type="date" formControlName="dueDate" (input)="resetPreview()" />
+            </ui-form-field>
+            <ui-form-field
+              label="Grado"
+              [hint]="
+                gradeOptions().length
+                  ? 'Vacío = todos los grados'
+                  : 'Catálogo de grados no disponible para tu rol: se usarán todos.'
+              "
+            >
+              <ui-select
+                formControlName="gradeId"
+                placeholder="Todos los grados"
+                [options]="gradeOptions()"
+                (change)="resetPreview()"
+              />
+            </ui-form-field>
+            <ui-form-field
+              label="Monto personalizado"
+              hint="Prevalece sobre la tarifa del grado"
+              [errorMessages]="amountMessages"
+            >
+              <ui-input
+                type="number"
+                formControlName="customAmount"
+                prefix="$"
+                min="0"
+                step="1000"
+                mono
+                (input)="resetPreview()"
+              />
+            </ui-form-field>
+            <ui-form-field label="Beca">
+              <ui-checkbox formControlName="applyScholarship" (checkedChange)="resetPreview()"
+                >Aplicar % de beca como descuento</ui-checkbox
+              >
+            </ui-form-field>
+          </div>
+
+          @if (preview(); as p) {
+            <section class="mt" aria-live="polite" aria-label="Previsualización">
+              <h3>Previsualización · {{ p.conceptName }} — {{ monthName(p.period) }}</h3>
+              <dl class="preview">
+                <div>
+                  <dt>Estudiantes</dt>
+                  <dd>{{ p.studentsCount }}</dd>
+                </div>
+                <div>
+                  <dt>Ya tenían el cobro</dt>
+                  <dd>{{ p.alreadyCharged }}</dd>
+                </div>
+                <div>
+                  <dt>Cobros a crear</dt>
+                  <dd>{{ p.chargesCount }}</dd>
+                </div>
+                <div>
+                  <dt>Total</dt>
+                  <dd>{{ p.totalNet | cop }}</dd>
+                </div>
+                <div>
+                  <dt>Vencimiento</dt>
+                  <dd>{{ p.dueDate }}</dd>
+                </div>
+              </dl>
+              @if (p.amounts.length) {
+                <p class="mt text-muted">
+                  Montos:
+                  @for (a of p.amounts; track a.netAmount; let last = $last) {
+                    {{ a.count }} × {{ a.netAmount | cop }}{{ last ? '' : ' · ' }}
+                  }
+                </p>
+              }
+            </section>
+          }
+          @if (batchResult(); as r) {
+            <ui-alert tone="success" class="mt" title="Cobros generados">
+              {{ r.chargesCount }} cobros generados ({{ r.alreadyCharged }} ya existían) por
+              {{ r.totalNet | cop }} en total.
+            </ui-alert>
+          }
+          @if (batchError()) {
+            <ui-alert tone="error" class="mt">{{ batchError() }}</ui-alert>
+          }
+          <div class="actions">
+            <button ui-button type="submit" icon="eye" [loading]="previewing()">
+              Previsualizar
+            </button>
+            <button
+              ui-button
+              type="button"
+              variant="primary"
+              icon="check"
+              [disabled]="!preview() || preview()!.chargesCount === 0"
+              [loading]="generating()"
+              (click)="generate()"
+            >
+              Generar lote
+            </button>
+          </div>
+        </form>
+      }
+
+      @case ('individual') {
+        <form
+          class="ui-card"
+          [formGroup]="individualForm"
+          (ngSubmit)="createIndividual()"
+          novalidate
+        >
+          <h2 class="ui-card__title">Cargo individual</h2>
+          <ui-form-field label="Estudiante" required>
+            @if (student(); as s) {
+              <div class="chosen">
+                <span
+                  ><strong>{{ s.fullName }}</strong>
+                  <span class="text-muted font-mono">{{ s.code }}</span></span
+                >
+                <button
+                  ui-button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  icon="x-mark"
+                  (click)="student.set(null)"
+                >
+                  Cambiar
+                </button>
+              </div>
+            } @else {
+              <app-student-search (selected)="student.set($event)" />
+            }
+          </ui-form-field>
+          <div class="grid grid--3 mt">
+            <ui-form-field label="Concepto" required>
+              <ui-select formControlName="conceptId" [options]="conceptOptions()" />
+            </ui-form-field>
+            <ui-form-field label="Mes asociado" required>
+              <ui-input type="month" formControlName="period" />
+            </ui-form-field>
+            <ui-form-field label="Fecha de vencimiento" hint="Por defecto, último día del mes">
+              <ui-input type="date" formControlName="dueDate" />
+            </ui-form-field>
+            <ui-form-field label="Monto específico" [errorMessages]="amountMessages">
+              <ui-input
+                type="number"
+                formControlName="customAmount"
+                prefix="$"
+                min="0"
+                step="1000"
+                mono
+              />
+            </ui-form-field>
+            <ui-form-field label="Opciones" class="span-2">
+              <div class="cluster">
+                <ui-checkbox formControlName="applyScholarship">Aplicar beca</ui-checkbox>
+                <ui-checkbox formControlName="allowDuplicate"
+                  >Permitir repetir concepto en el mes</ui-checkbox
+                >
+              </div>
+            </ui-form-field>
+          </div>
+          <ui-form-field label="Descripción personalizada">
+            <ui-textarea formControlName="description" [rows]="2" [maxlength]="255" />
+          </ui-form-field>
+          @if (individualError()) {
+            <ui-alert tone="error" class="mt">{{ individualError() }}</ui-alert>
+          }
+          <div class="actions">
+            <button ui-button type="submit" variant="primary" icon="plus" [loading]="creating()">
+              Crear cobro
+            </button>
+          </div>
+        </form>
+      }
+
+      @case ('resumen') {
+        <ui-data-table
+          [columns]="summaryColumns"
+          [rows]="val(summary) ?? []"
+          [loading]="summary.isLoading()"
+          [trackBy]="summaryKey"
+          caption="Resumen de cobros generados"
+          emptyTitle="Aún no hay cobros generados"
+        >
+          <ng-template uiCell="collectedRate" let-row>
+            <span class="rate">
+              <ui-progress-bar
+                [value]="row.collectedRate"
+                mode="auto"
+                [label]="row.collectedRate + ' % recaudado'"
+              />
+              <span class="font-mono">{{ row.collectedRate }} %</span>
+            </span>
+          </ng-template>
+        </ui-data-table>
+      }
+    }
+  </div>
+</ui-tabs>

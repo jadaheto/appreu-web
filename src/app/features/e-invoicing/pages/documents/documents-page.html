@@ -1,0 +1,129 @@
+<div class="page-header">
+  <div>
+    <h1>Facturación electrónica</h1>
+    <p class="page-header__subtitle">
+      Facturas de venta, notas crédito y notas débito enviadas a la DIAN.
+    </p>
+  </div>
+  <div class="cluster">
+    <a ui-button variant="primary" icon="plus" routerLink="nueva">Emitir factura</a>
+  </div>
+</div>
+
+@if (stats.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar los indicadores" class="mb">
+    Intenta de nuevo más tarde.
+  </ui-alert>
+}
+
+<section class="grid grid--4 mb" aria-label="Indicadores de facturación">
+  <ui-stat-card
+    label="Total facturado (aceptado)"
+    icon="banknotes"
+    tone="success"
+    [loading]="stats.isLoading()"
+    [value]="kpis()?.acceptedTotal ?? null"
+    [hint]="kpis() ? kpis()!.accepted + ' facturas aceptadas' : ''"
+  />
+  <ui-stat-card
+    label="Facturas emitidas"
+    icon="document-text"
+    tone="primary"
+    [loading]="stats.isLoading()"
+    [value]="kpis()?.invoices ?? null"
+    [hint]="kpis()?.notes ?? ''"
+  />
+  <ui-stat-card
+    label="En proceso"
+    icon="clock"
+    tone="info"
+    [loading]="stats.isLoading()"
+    [value]="kpis()?.inProcess ?? null"
+    hint="Borradores, firmados y enviados"
+  />
+  <ui-stat-card
+    label="Rechazados / con error"
+    icon="exclamation-triangle"
+    tone="danger"
+    [loading]="stats.isLoading()"
+    [value]="kpis()?.problems ?? null"
+    hint="Requieren revisión o reenvío"
+    link="diagnostico"
+    linkLabel="Diagnóstico"
+  />
+</section>
+
+<ui-filter-bar
+  class="mb"
+  ariaLabel="Filtros de documentos"
+  [showClear]="hasFilters()"
+  (apply)="applyFilters()"
+  (clear)="clearFilters()"
+>
+  <ui-search-box
+    placeholder="Número, adquiriente, documento o CUFE…"
+    ariaLabel="Buscar documentos"
+    [(value)]="search"
+    (search)="onSearch($event)"
+  />
+  <ui-select
+    ariaLabel="Tipo de documento"
+    placeholder="Todos los tipos"
+    [options]="typeOptions"
+    [ngModel]="type()"
+    (ngModelChange)="type.set($event)"
+  />
+  <ui-select
+    ariaLabel="Estado DIAN"
+    placeholder="Todos los estados"
+    [options]="statusOptions"
+    [ngModel]="status()"
+    (ngModelChange)="status.set($event)"
+  />
+  <ui-date-range [ngModel]="range()" (ngModelChange)="range.set($event)" />
+</ui-filter-bar>
+
+@if (documents.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el listado" class="mb">
+    Revisa tu conexión e inténtalo de nuevo.
+    <button ui-button size="sm" variant="ghost" (click)="documents.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Documentos electrónicos"
+  [columns]="columns"
+  [rows]="val(documents)?.items ?? []"
+  [loading]="documents.isLoading()"
+  [actions]="actions"
+  rowClickable
+  emptyIcon="document-text"
+  emptyTitle="No hay documentos"
+  [emptyMessage]="
+    hasFilters()
+      ? 'Ningún documento coincide con los filtros.'
+      : 'Aún no se han emitido documentos.'
+  "
+  (rowClick)="open($event)"
+  (action)="onAction($event)"
+>
+  <ng-template uiCell="customerName" let-row>
+    <span class="customer">
+      {{ row.customerName }}
+      <small class="font-mono">{{ row.customerIdNumber }}</small>
+    </span>
+  </ng-template>
+  <ng-template uiCell="cufe" let-value="value">
+    <app-cufe-chip [value]="$any(value)" [copyable]="false" />
+  </ng-template>
+  <ng-template uiCell="status" let-row>
+    <app-document-status-badge [status]="row.status" />
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page"
+    [pageSize]="filters().pageSize"
+    [total]="val(documents)?.total ?? 0"
+    (pageChange)="onPage($event)"
+  />
+</ui-data-table>

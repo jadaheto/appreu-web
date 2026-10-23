@@ -1,0 +1,199 @@
+<div class="page-header">
+  <div>
+    <a [routerLink]="entryId ? base + '/asientos/' + entryId : base + '/asientos'" class="muted">
+      ← Volver
+    </a>
+    <h1>{{ entryId ? 'Editar borrador' : 'Nuevo comprobante' }}</h1>
+    <p class="page-header__subtitle">
+      Partida doble: la suma de débitos debe igualar la de créditos
+    </p>
+  </div>
+  <span
+    class="balance"
+    [class.ok]="totals().balanced"
+    [class.ko]="!totals().balanced"
+    role="status"
+    aria-live="polite"
+  >
+    <ui-icon [name]="totals().balanced ? 'check-circle' : 'exclamation-triangle'" [size]="18" />
+    {{ totals().balanced ? 'Cuadrado' : 'Sin cuadrar' }}
+  </span>
+</div>
+
+@if (entryId && existing.isLoading()) {
+  <div class="loading"><ui-spinner size="lg" /></div>
+} @else if (notDraft(); as entry) {
+  <ui-alert tone="warning" title="Este comprobante no se puede editar">
+    Solo los borradores son editables. {{ entry.displayNumber }} está
+    {{ entry.status === 'posted' ? 'contabilizado' : 'anulado' }}.
+    <a [routerLink]="base + '/asientos/' + entry.id">Ver comprobante</a>
+  </ui-alert>
+} @else {
+  @if (noAccounts()) {
+    <ui-alert tone="warning" title="No hay cuentas de movimiento" class="mb">
+      Crea cuentas auxiliares o carga el PUC base en
+      <a [routerLink]="base + '/cuentas'">Plan de cuentas</a>.
+    </ui-alert>
+  }
+  @if (serverError()) {
+    <ui-alert tone="error" class="mb" title="No se pudo guardar">{{ serverError() }}</ui-alert>
+  }
+
+  <form [formGroup]="form" (ngSubmit)="save('post')" novalidate>
+    <section class="ui-card mb" aria-label="Encabezado del comprobante">
+      <div class="form-grid">
+        <ui-form-field label="Tipo de comprobante" required>
+          <ui-select formControlName="type" [options]="typeOptions" [placeholder]="null" />
+        </ui-form-field>
+        <ui-form-field label="Fecha" required>
+          <ui-input type="date" formControlName="date" />
+        </ui-form-field>
+        <ui-form-field label="Periodo" hint="Solo periodos abiertos">
+          <ui-select formControlName="periodId" [options]="periodOptions()" [placeholder]="null" />
+        </ui-form-field>
+        <ui-form-field label="Descripción" required>
+          <ui-input formControlName="description" placeholder="Ej. Pago de servicios públicos" />
+        </ui-form-field>
+      </div>
+    </section>
+
+    <section class="ui-card" aria-label="Líneas del asiento">
+      <h2 class="ui-card__title">Líneas del asiento</h2>
+      <div class="scroll-x">
+        <table class="simple-table lines-table" formArrayName="lines">
+          <thead>
+            <tr>
+              <th class="col-account" scope="col">Cuenta PUC</th>
+              <th class="col-party" scope="col">Tercero</th>
+              <th scope="col">Detalle</th>
+              <th class="col-amount num" scope="col">Débito</th>
+              <th class="col-amount num" scope="col">Crédito</th>
+              <th class="col-act" scope="col"><span class="sr-only">Acciones</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (line of lines.controls; track line; let i = $index) {
+              <tr [formGroupName]="i">
+                <td>
+                  <ui-select
+                    formControlName="accountId"
+                    [options]="accountOptions()"
+                    placeholder="Seleccione cuenta…"
+                    [ariaLabel]="'Cuenta de la línea ' + (i + 1)"
+                    [invalid]="!!lineError(i) && !line.value.accountId"
+                  />
+                  @if (lineError(i); as err) {
+                    <p class="line-error" role="alert">{{ err }}</p>
+                  }
+                </td>
+                <td>
+                  <ui-select
+                    formControlName="thirdPartyId"
+                    [options]="partyOptions()"
+                    placeholder="Sin tercero"
+                    [ariaLabel]="'Tercero de la línea ' + (i + 1)"
+                  />
+                </td>
+                <td>
+                  <ui-input
+                    formControlName="description"
+                    [ariaLabel]="'Detalle de la línea ' + (i + 1)"
+                  />
+                </td>
+                <td>
+                  <ui-input
+                    type="number"
+                    formControlName="debit"
+                    min="0"
+                    step="0.01"
+                    mono
+                    prefix="$"
+                    [ariaLabel]="'Débito de la línea ' + (i + 1)"
+                  />
+                </td>
+                <td>
+                  <ui-input
+                    type="number"
+                    formControlName="credit"
+                    min="0"
+                    step="0.01"
+                    mono
+                    prefix="$"
+                    [ariaLabel]="'Crédito de la línea ' + (i + 1)"
+                  />
+                </td>
+                <td>
+                  <button
+                    ui-button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    iconOnly
+                    icon="calculator"
+                    [attr.aria-label]="'Cuadrar con la línea ' + (i + 1)"
+                    title="Completar con la diferencia"
+                    [disabled]="!totals().difference"
+                    (click)="balanceLine(i)"
+                  ></button>
+                  <button
+                    ui-button
+                    type="button"
+                    size="sm"
+                    variant="ghost"
+                    iconOnly
+                    icon="x-mark"
+                    [attr.aria-label]="'Quitar la línea ' + (i + 1)"
+                    title="Quitar línea"
+                    (click)="removeLine(i)"
+                  ></button>
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="3">
+                Totales
+                @if (totals().difference) {
+                  <span class="diff"> · Diferencia {{ cop(totals().difference) }}</span>
+                }
+              </td>
+              <td class="num" data-testid="total-debit">{{ cop(totals().debit) }}</td>
+              <td class="num" data-testid="total-credit">{{ cop(totals().credit) }}</td>
+              <td></td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <button ui-button type="button" size="sm" icon="plus" (click)="addLine()">
+        Agregar línea
+      </button>
+    </section>
+
+    <div class="footer">
+      <a ui-button variant="ghost" [routerLink]="base + '/asientos'">Cancelar</a>
+      <div class="actions-row">
+        <button
+          ui-button
+          type="button"
+          icon="document-text"
+          [loading]="saving() === 'draft'"
+          [disabled]="!!saving()"
+          (click)="save('draft')"
+        >
+          Guardar borrador
+        </button>
+        <button
+          ui-button
+          type="submit"
+          variant="primary"
+          icon="check"
+          [loading]="saving() === 'post'"
+          [disabled]="!totals().balanced || !!saving()"
+        >
+          Contabilizar
+        </button>
+      </div>
+    </div>
+  </form>
+}

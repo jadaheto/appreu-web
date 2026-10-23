@@ -1,0 +1,105 @@
+<div class="page-header">
+  <div>
+    <h1>Terceros</h1>
+    <p class="page-header__subtitle">Personas y empresas con las que se registran movimientos</p>
+  </div>
+  <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nuevo tercero</button>
+</div>
+
+<ui-filter-bar
+  class="mb"
+  [showClear]="hasFilters()"
+  (apply)="applyFilters()"
+  (clear)="clearFilters()"
+>
+  <ui-search-box
+    placeholder="Buscar por nombre o documento…"
+    ariaLabel="Buscar terceros"
+    [value]="searchText()"
+    (valueChange)="searchText.set($event)"
+    (search)="searchText.set($event); applyFilters()"
+  />
+  <ui-select
+    ariaLabel="Estado"
+    placeholder="Todos los estados"
+    [options]="statusOptions"
+    [ngModel]="activeFilter()"
+    (ngModelChange)="activeFilter.set($event)"
+  />
+</ui-filter-bar>
+
+<ui-data-table
+  caption="Terceros contables"
+  [columns]="columns"
+  [rows]="page()?.items ?? []"
+  [actions]="actions"
+  [loading]="result.isLoading()"
+  [rowClass]="rowClass"
+  emptyTitle="No hay terceros"
+  emptyMessage="Registra proveedores, empleados o acudientes para usarlos en los asientos."
+  (action)="onAction($event)"
+>
+  <ng-template uiCell="document" let-row>
+    <ui-badge tone="info">{{ row.documentType }}</ui-badge>
+    <span class="mono"> {{ row.document }}</span>
+  </ng-template>
+  <ng-template uiCell="isActive" let-value="value">
+    <ui-badge [status]="value ? 'active' : 'inactive'" />
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page ?? 1"
+    [pageSize]="filters().pageSize ?? 20"
+    [total]="page()?.total ?? 0"
+    (pageChange)="onPage($event)"
+  />
+</ui-data-table>
+
+<ui-modal [(open)]="modalOpen" size="lg" [title]="editing() ? 'Editar tercero' : 'Nuevo tercero'">
+  <form id="third-party-form" class="form-grid" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    @if (serverError()) {
+      <ui-alert tone="error" class="full">{{ serverError() }}</ui-alert>
+    }
+    <ui-form-field label="Tipo de documento" required>
+      <ui-select formControlName="documentType" [options]="docOptions" [placeholder]="null" />
+    </ui-form-field>
+    <ui-form-field label="Número de documento" required>
+      <ui-input formControlName="documentNumber" mono placeholder="900123456" />
+    </ui-form-field>
+    @if (docType() === 'NIT') {
+      <ui-form-field
+        label="Dígito de verificación"
+        hint="Opcional: la API lo calcula (DIAN módulo 11) y valida si lo escribes."
+        [errorMessages]="dvErrors"
+      >
+        <ui-input formControlName="dv" mono [maxlength]="1" inputmode="numeric" />
+      </ui-form-field>
+    }
+    @if (editing()?.dv) {
+      <ui-form-field label="Documento registrado">
+        <ui-input [value]="editing()!.document" mono readonly ariaLabel="Documento con DV" />
+      </ui-form-field>
+    }
+    <ui-form-field label="Nombre / razón social" required class="full">
+      <ui-input formControlName="name" />
+    </ui-form-field>
+    <ui-form-field label="Email">
+      <ui-input type="email" formControlName="email" />
+    </ui-form-field>
+    <ui-form-field label="Teléfono">
+      <ui-input type="tel" formControlName="phone" />
+    </ui-form-field>
+    <ui-form-field label="Ciudad">
+      <ui-input formControlName="city" />
+    </ui-form-field>
+    <ui-form-field label="Dirección">
+      <ui-input formControlName="address" />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="modalOpen.set(false)">Cancelar</button>
+    <button ui-button variant="primary" type="submit" form="third-party-form" [loading]="saving()">
+      Guardar
+    </button>
+  </ng-container>
+</ui-modal>

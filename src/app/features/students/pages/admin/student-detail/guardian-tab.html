@@ -1,0 +1,146 @@
+@if (serverError(); as err) {
+  <ui-alert tone="error" class="block">{{ err }}</ui-alert>
+}
+
+@switch (mode()) {
+  @case ('view') {
+    @if (guardian(); as g) {
+      <div class="bar">
+        <h2 class="ui-card__title">Acudiente legal</h2>
+        <div class="cluster">
+          @if (g.hasPortalAccount) {
+            <ui-badge tone="success" dot>Con cuenta del portal</ui-badge>
+          } @else {
+            <ui-badge tone="warning" dot>Sin cuenta del portal</ui-badge>
+          }
+          <button ui-button type="button" size="sm" icon="pencil" (click)="setMode('edit')">
+            Editar
+          </button>
+          <button ui-button type="button" size="sm" icon="users" (click)="setMode('link')">
+            Cambiar
+          </button>
+          <button
+            ui-button
+            type="button"
+            size="sm"
+            variant="danger"
+            icon="x-mark"
+            [loading]="busy()"
+            (click)="unlink()"
+          >
+            Desvincular
+          </button>
+        </div>
+      </div>
+      <app-info-grid [items]="items()" [columns]="3" />
+      @if (siblings().length) {
+        <h3 class="ui-card__title" style="margin-top: 1.5rem">
+          Otros estudiantes a cargo (hermanos)
+        </h3>
+        <ul class="siblings">
+          @for (s of siblings(); track s.id) {
+            <li>
+              <a [routerLink]="['..', s.id]">{{ s.fullName }}</a>
+              <span class="font-mono"> ({{ s.code }})</span> — {{ statusLabel(s.status) }}
+            </li>
+          }
+        </ul>
+      }
+    } @else {
+      <ui-empty-state
+        icon="users"
+        title="Sin acudiente registrado"
+        message="Vincula un acudiente existente (por ejemplo, el de un hermano) o registra uno nuevo."
+      >
+        <button ui-button type="button" icon="magnifying-glass" (click)="setMode('link')">
+          Vincular existente
+        </button>
+        <button ui-button type="button" variant="primary" icon="plus" (click)="setMode('create')">
+          Registrar nuevo
+        </button>
+      </ui-empty-state>
+    }
+  }
+  @case ('link') {
+    <h2 class="ui-card__title">Vincular acudiente existente</h2>
+    <form class="lookup" (submit)="$event.preventDefault(); lookup()">
+      <ui-form-field label="Documento del acudiente" required>
+        <ui-input [formControl]="lookupDocument" mono placeholder="Número de documento" />
+      </ui-form-field>
+      <button
+        ui-button
+        type="submit"
+        icon="magnifying-glass"
+        [loading]="lookupState() === 'loading'"
+      >
+        Buscar
+      </button>
+      <button ui-button type="button" variant="ghost" (click)="setMode('view')">Cancelar</button>
+    </form>
+    @if (lookupState() === 'notFound') {
+      <ui-alert tone="warning" title="No hay un acudiente con ese documento" class="block">
+        <button ui-button type="button" size="sm" icon="plus" (click)="setMode('create')">
+          Registrar nuevo acudiente
+        </button>
+      </ui-alert>
+    }
+    @if (found(); as f) {
+      <div class="ui-card stack" style="margin-top: 1rem">
+        <p>
+          <strong>{{ f.fullName }}</strong> · {{ relationshipLabel(f.relationship) }} ·
+          <span class="font-mono">{{ f.documentNumber }}</span>
+        </p>
+        <p class="text-muted">{{ f.mobile || 'Sin celular' }} · {{ f.email || 'Sin correo' }}</p>
+        @if (f.students.length) {
+          <p class="text-muted">A cargo de: {{ f.students.length }} estudiante(s)</p>
+        }
+        <div>
+          <button
+            ui-button
+            type="button"
+            variant="primary"
+            icon="check"
+            [loading]="busy()"
+            (click)="link(f)"
+          >
+            Vincular a este estudiante
+          </button>
+        </div>
+      </div>
+    }
+  }
+  @case ('edit') {
+    @if (form(); as f) {
+      <h2 class="ui-card__title">Editar acudiente</h2>
+      @if (siblings().length) {
+        <ui-alert tone="warning" class="block">
+          Este acudiente es compartido con {{ siblings().length }} estudiante(s) más; los cambios
+          los afectan.
+        </ui-alert>
+      }
+      <form class="stack" (submit)="$event.preventDefault(); saveEdit(f)">
+        <app-guardian-fields [form]="f" />
+        <div class="cluster end">
+          <button ui-button type="button" (click)="setMode('view')">Cancelar</button>
+          <button ui-button type="submit" variant="primary" icon="check" [loading]="busy()">
+            Guardar
+          </button>
+        </div>
+      </form>
+    }
+  }
+  @case ('create') {
+    @if (form(); as f) {
+      <h2 class="ui-card__title">Registrar acudiente</h2>
+      <form class="stack" (submit)="$event.preventDefault(); saveNew(f)">
+        <app-guardian-fields [form]="f" />
+        <div class="cluster end">
+          <button ui-button type="button" (click)="setMode('view')">Cancelar</button>
+          <button ui-button type="submit" variant="primary" icon="check" [loading]="busy()">
+            Registrar y vincular
+          </button>
+        </div>
+      </form>
+    }
+  }
+}

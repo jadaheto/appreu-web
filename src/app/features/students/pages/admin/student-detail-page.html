@@ -1,0 +1,92 @@
+<div class="page-header no-print">
+  <a ui-button variant="ghost" icon="arrow-left" routerLink="..">Directorio de alumnos</a>
+</div>
+
+@if (profile.isLoading() && !data()) {
+  <div class="center"><ui-spinner size="lg" /></div>
+} @else if (profile.error(); as err) {
+  <ui-alert tone="error" title="No se pudo cargar la ficha">{{ err.message }}</ui-alert>
+} @else if (data(); as d) {
+  @let s = d.student;
+  <section class="ui-card head no-print">
+    <app-student-photo
+      [studentId]="s.id"
+      [name]="s.fullName"
+      [initials]="s.initials"
+      [available]="s.photoAvailable"
+      [version]="photoVersion()"
+      size="xl"
+    />
+    <div class="who">
+      <h1>{{ s.fullName }}</h1>
+      <div class="cluster">
+        <ui-badge tone="primary"
+          ><span class="font-mono">{{ s.code }}</span></ui-badge
+        >
+        @if (s.placement; as p) {
+          <ui-badge tone="info">{{ p.gradeName }} · {{ p.classroomName }}</ui-badge>
+        } @else {
+          <ui-badge>Sin salón</ui-badge>
+        }
+        <ui-badge [tone]="statusTone(s.status)" dot>{{ statusLabel(s.status) }}</ui-badge>
+        @if (s.scholarshipPct > 0) {
+          <ui-badge tone="success">Beca {{ s.scholarshipPct }}%</ui-badge>
+        }
+      </div>
+      <p class="text-muted meta">
+        {{ documentLabel(s.documentType) }}:
+        <span class="font-mono">{{ s.documentNumber ?? '—' }}</span>
+        @if (s.guardianDetails; as g) {
+          · Acudiente: {{ g.fullName }}
+        }
+      </p>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <ui-tabs
+      [tabs]="tabs()"
+      [active]="activeTab()"
+      (activeChange)="selectTab($event)"
+      ariaLabel="Secciones de la ficha"
+    >
+      @switch (activeTab()) {
+        @case ('datos') {
+          <app-student-data-tab [student]="s" (updated)="reload()" />
+        }
+        @case ('acudiente') {
+          <app-student-guardian-tab [student]="s" (changed)="reload()" />
+        }
+        @case ('foto') {
+          <app-student-photo-tab
+            [student]="s"
+            [version]="photoVersion()"
+            (uploaded)="onPhotoUploaded()"
+          />
+        }
+        @case ('cuentas') {
+          <app-student-accounts-tab [student]="s" (changed)="reload()" />
+        }
+        @case ('finanzas') {
+          <app-student-finance-tab [studentId]="s.id" [summary]="d.finance" />
+        }
+        @case ('incidencias') {
+          <app-student-incidents-tab [student]="s" [incidents]="d.incidents" (changed)="reload()" />
+        }
+        @case ('certificados') {
+          <app-student-certificates-tab
+            [student]="s"
+            [certificates]="d.certificates"
+            (changed)="reload()"
+          />
+        }
+        @case ('carnet') {
+          <app-student-id-card-tab [studentId]="s.id" />
+        }
+        @case ('estado') {
+          <app-student-status-tab [student]="s" (changed)="reload()" />
+        }
+      }
+    </ui-tabs>
+  </section>
+}

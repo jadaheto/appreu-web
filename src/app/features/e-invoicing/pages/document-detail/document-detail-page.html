@@ -1,0 +1,359 @@
+@if (document.isLoading() && !doc()) {
+  <div class="loading"><ui-spinner size="lg" label="Cargando documento…" /></div>
+} @else if (document.error() && !doc()) {
+  <ui-empty-state
+    icon="exclamation-triangle"
+    title="No se pudo cargar el documento"
+    message="Verifica que exista o inténtalo de nuevo."
+  >
+    <button ui-button variant="secondary" icon="arrow-left" routerLink="..">
+      Volver al listado
+    </button>
+  </ui-empty-state>
+} @else if (doc(); as d) {
+  <div class="page-header">
+    <div>
+      <a class="back" routerLink=".."><ui-icon name="arrow-left" [size]="16" /> Documentos</a>
+      <h1>
+        {{ typeLabels[d.type] }} <span class="font-mono">{{ d.number }}</span>
+      </h1>
+      <p class="page-header__subtitle cluster">
+        <app-document-status-badge [status]="d.status" />
+        <ui-badge [tone]="d.environment === '1' ? 'success' : 'warning'">{{
+          environmentLabel()
+        }}</ui-badge>
+        <span>Emitido el {{ d.issueDate | dateEs }} · {{ d.issueTime }}</span>
+      </p>
+    </div>
+    <div class="cluster actions">
+      @if (canRetry()) {
+        <button
+          ui-button
+          variant="primary"
+          icon="arrow-up"
+          [loading]="busy() === 'submit'"
+          [disabled]="!!busy()"
+          (click)="retry()"
+        >
+          Reintentar envío
+        </button>
+      }
+      @if (canCheckStatus()) {
+        <button
+          ui-button
+          variant="secondary"
+          icon="magnifying-glass"
+          [loading]="busy() === 'status'"
+          [disabled]="!!busy()"
+          (click)="checkStatus()"
+        >
+          Consultar estado
+        </button>
+      }
+      @if (canIssueNotes()) {
+        <button ui-button variant="secondary" icon="document-text" (click)="openNote('nc')">
+          Nota crédito
+        </button>
+        <button ui-button variant="secondary" icon="document-text" (click)="openNote('nd')">
+          Nota débito
+        </button>
+      }
+    </div>
+  </div>
+
+  @if (d.statusMessage) {
+    <ui-alert
+      class="mb"
+      [tone]="
+        d.status === 'rejected' || d.status === 'send_error'
+          ? 'error'
+          : d.status === 'accepted_with_notices'
+            ? 'warning'
+            : 'info'
+      "
+      [title]="d.statusCode ? 'Respuesta DIAN (' + d.statusCode + ')' : 'Respuesta DIAN'"
+    >
+      {{ d.statusMessage }}
+    </ui-alert>
+  }
+
+  <div class="grid grid--3 mb">
+    <section class="ui-card span-2" aria-labelledby="doc-data">
+      <h2 class="ui-card__title" id="doc-data">Datos del documento</h2>
+      <dl class="facts">
+        <div class="full">
+          <dt>{{ d.type === 'fv' ? 'CUFE' : 'CUDE' }}</dt>
+          <dd><app-cufe-chip [value]="d.cufe" [full]="true" /></dd>
+        </div>
+        <div>
+          <dt>Track ID</dt>
+          <dd class="font-mono">{{ d.trackId ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Archivo</dt>
+          <dd class="font-mono">{{ d.fileName ?? '—' }}</dd>
+        </div>
+        <div>
+          <dt>Forma de pago</dt>
+          <dd>
+            {{ d.paymentMeans.form === '2' ? 'Crédito' : 'Contado' }} · medio
+            {{ d.paymentMeans.code }}
+            @if (d.paymentMeans.dueDate) {
+              · vence {{ d.paymentMeans.dueDate | dateEs }}
+            }
+          </dd>
+        </div>
+        <div>
+          <dt>Intentos de envío</dt>
+          <dd>{{ d.attempts }}</dd>
+        </div>
+        @if (d.sourcePaymentId) {
+          <div>
+            <dt>Pago de origen</dt>
+            <dd class="font-mono">#{{ d.sourcePaymentId }}</dd>
+          </div>
+        }
+        @if (d.billingReference; as ref) {
+          <div class="full">
+            <dt>Factura referenciada</dt>
+            <dd>
+              @if (ref.documentId) {
+                <a [routerLink]="['..', 'documentos', ref.documentId]" class="font-mono">{{
+                  ref.number
+                }}</a>
+              } @else {
+                <span class="font-mono">{{ ref.number }}</span>
+              }
+              · {{ ref.issueDate | dateEs }}
+            </dd>
+          </div>
+        }
+        @if (d.discrepancy; as disc) {
+          <div class="full">
+            <dt>Concepto de la nota</dt>
+            <dd>{{ disc.code }} — {{ disc.description }}</dd>
+          </div>
+        }
+        @if (d.notes) {
+          <div class="full">
+            <dt>Observaciones</dt>
+            <dd>{{ d.notes }}</dd>
+          </div>
+        }
+        @if (d.qrUrl) {
+          <div class="full">
+            <dt>Consulta DIAN</dt>
+            <dd>
+              <a [href]="d.qrUrl" target="_blank" rel="noopener">Ver en el catálogo DIAN</a>
+            </dd>
+          </div>
+        }
+      </dl>
+    </section>
+
+    <section class="ui-card" aria-labelledby="doc-customer">
+      <h2 class="ui-card__title" id="doc-customer">Adquiriente</h2>
+      <p class="strong">{{ d.customer.name }}</p>
+      <p class="font-mono">
+        Tipo {{ d.customer.idType }} · {{ d.customer.idNumber
+        }}{{ d.customer.dv ? '-' + d.customer.dv : '' }}
+      </p>
+      @if (d.customer.email) {
+        <p>{{ d.customer.email }}</p>
+      }
+      @if (d.customer.phone) {
+        <p>Tel. {{ d.customer.phone }}</p>
+      }
+      @if (d.customer.address) {
+        <p>{{ d.customer.address }}</p>
+      }
+      <p class="text-muted">{{ d.customer.cityName }}, {{ d.customer.departmentName }}</p>
+
+      <h3 class="sub">Descargas</h3>
+      @if (artifacts().length) {
+        <div class="downloads">
+          @for (a of artifacts(); track a.kind) {
+            <button
+              ui-button
+              size="sm"
+              variant="secondary"
+              icon="download"
+              [loading]="busy() === a.kind"
+              [disabled]="!!busy()"
+              (click)="download(a.kind)"
+            >
+              {{ a.label }}
+            </button>
+          }
+        </div>
+      } @else {
+        <p class="text-muted">Sin archivos disponibles.</p>
+      }
+    </section>
+  </div>
+
+  <section class="ui-card mb" aria-labelledby="doc-lines">
+    <h2 class="ui-card__title" id="doc-lines">Líneas</h2>
+    <div class="table-scroll">
+      <table class="simple">
+        <thead>
+          <tr>
+            <th scope="col">Descripción</th>
+            <th scope="col">Código</th>
+            <th scope="col" class="num">Cant.</th>
+            <th scope="col" class="num">Valor unitario</th>
+            <th scope="col">IVA</th>
+            <th scope="col" class="num">Impuesto</th>
+            <th scope="col" class="num">Total línea</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of d.lines; track $index) {
+            <tr>
+              <td>{{ l.description }}</td>
+              <td class="font-mono">{{ l.code }}</td>
+              <td class="num">{{ l.quantity }}</td>
+              <td class="num font-mono">{{ l.unitPrice | cop }}</td>
+              <td>
+                {{ treatmentLabels[l.taxTreatment] }}
+                @if (l.taxTreatment === 'taxed') {
+                  ({{ l.taxRate }} %)
+                }
+              </td>
+              <td class="num font-mono">{{ l.taxAmount | cop }}</td>
+              <td class="num font-mono">{{ l.lineTotal | cop }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <th scope="row" colspan="6" class="num">Subtotal</th>
+            <td class="num font-mono">{{ d.subtotal | cop }}</td>
+          </tr>
+          <tr>
+            <th scope="row" colspan="6" class="num">IVA</th>
+            <td class="num font-mono">{{ d.tax | cop }}</td>
+          </tr>
+          <tr class="total">
+            <th scope="row" colspan="6" class="num">Total</th>
+            <td class="num font-mono">{{ d.total | cop }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </section>
+
+  @if (d.errors.length || d.notices.length) {
+    <section class="grid grid--2 mb">
+      @if (d.errors.length) {
+        <div class="ui-card">
+          <h2 class="ui-card__title">Reglas de rechazo</h2>
+          <ul class="messages error">
+            @for (e of d.errors; track $index) {
+              <li>{{ e }}</li>
+            }
+          </ul>
+        </div>
+      }
+      @if (d.notices.length) {
+        <div class="ui-card">
+          <h2 class="ui-card__title">Notificaciones</h2>
+          <ul class="messages warning">
+            @for (n of d.notices; track $index) {
+              <li>{{ n }}</li>
+            }
+          </ul>
+        </div>
+      }
+    </section>
+  }
+
+  <section class="ui-card" aria-labelledby="doc-submissions">
+    <h2 class="ui-card__title" id="doc-submissions">Historial de envíos</h2>
+    @if (d.submissions.length) {
+      <ol class="timeline">
+        @for (s of d.submissions; track $index) {
+          <li>
+            <div class="when">{{ s.at | dateEs: 'datetime' }}</div>
+            <div class="what">
+              <strong>{{ s.operation }}</strong>
+              <span class="outcome">{{ s.outcome }}</span>
+              @if (s.statusCode) {
+                <span class="font-mono">· código {{ s.statusCode }}</span>
+              }
+              @if (s.statusMessage) {
+                <p>{{ s.statusMessage }}</p>
+              }
+              @if (s.trackId) {
+                <p class="text-muted font-mono">Track ID {{ s.trackId }}</p>
+              }
+              @if (s.errors.length) {
+                <ul class="messages error">
+                  @for (e of s.errors; track $index) {
+                    <li>{{ e }}</li>
+                  }
+                </ul>
+              }
+            </div>
+          </li>
+        }
+      </ol>
+    } @else {
+      <ui-empty-state
+        icon="clock"
+        title="Sin envíos"
+        message="El documento aún no se ha enviado a la DIAN."
+      />
+    }
+  </section>
+
+  <ui-modal
+    [open]="noteOpen()"
+    (openChange)="noteOpen.set($event)"
+    size="xl"
+    [title]="noteKind() === 'nc' ? 'Emitir nota crédito' : 'Emitir nota débito'"
+    [description]="'Referencia la factura ' + d.number"
+  >
+    <form id="note-form" class="stack" [formGroup]="noteForm" (ngSubmit)="submitNote()">
+      @if (noteError()) {
+        <ui-alert tone="error" title="No se pudo emitir la nota">{{ noteError() }}</ui-alert>
+      }
+      <div class="grid grid--2">
+        <ui-form-field label="Concepto" required>
+          <ui-select
+            formControlName="conceptCode"
+            [options]="conceptOptions()"
+            placeholder="Seleccione el concepto…"
+          />
+        </ui-form-field>
+        <ui-form-field label="Descripción" hint="Motivo de la nota (opcional)">
+          <ui-input formControlName="description" [maxlength]="255" />
+        </ui-form-field>
+      </div>
+      @if (fullAnnulment()) {
+        <ui-alert tone="warning" title="Anulación total">
+          Se anulará la totalidad de la factura; no es necesario indicar líneas.
+        </ui-alert>
+      } @else {
+        <app-line-items-editor [lines]="noteForm.controls.lines" />
+      }
+      <ui-form-field label="Observaciones">
+        <ui-textarea formControlName="notes" [rows]="2" [maxlength]="2000" />
+      </ui-form-field>
+    </form>
+    <div uiModalFooter class="cluster">
+      <button ui-button type="button" variant="ghost" (click)="noteOpen.set(false)">
+        Cancelar
+      </button>
+      <button
+        ui-button
+        type="submit"
+        form="note-form"
+        variant="primary"
+        [loading]="busy() === 'note'"
+      >
+        Emitir
+      </button>
+    </div>
+  </ui-modal>
+}

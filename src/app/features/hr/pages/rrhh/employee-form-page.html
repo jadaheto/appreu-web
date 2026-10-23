@@ -1,0 +1,288 @@
+<div class="page-header">
+  <div>
+    <h1>{{ isEdit() ? 'Editar empleado' : 'Nuevo empleado' }}</h1>
+    <p class="page-header__subtitle">
+      Datos personales, contrato, banco, seguridad social y deducciones.
+    </p>
+  </div>
+  <a
+    ui-button
+    variant="ghost"
+    icon="arrow-left"
+    [routerLink]="isEdit() ? [base, 'empleados', id()] : [base]"
+    >Volver</a
+  >
+</div>
+
+@if (loadError()) {
+  <ui-alert tone="error" title="No se pudo cargar el empleado">{{ loadError() }}</ui-alert>
+} @else if (isEdit() && existing.isLoading()) {
+  <div class="ui-card" style="text-align: center"><ui-spinner size="lg" /></div>
+} @else {
+  <form class="ui-card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    @if (serverError()) {
+      <ui-alert
+        tone="error"
+        title="No se pudo guardar"
+        class="mb"
+        dismissible
+        (dismissed)="serverError.set(null)"
+      >
+        {{ serverError() }}
+      </ui-alert>
+    }
+
+    <ui-tabs [tabs]="steps" [(active)]="step" variant="pill" ariaLabel="Pasos del formulario">
+      @switch (step()) {
+        @case ('personal') {
+          <div class="grid grid--2">
+            <ui-form-field label="Nombre(s)" required>
+              <ui-input formControlName="firstName" autocomplete="given-name" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Apellido(s)" required>
+              <ui-input formControlName="lastName" autocomplete="family-name" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Tipo de documento" required>
+              <ui-select
+                formControlName="documentType"
+                [options]="documentTypes"
+                [placeholder]="null"
+              />
+            </ui-form-field>
+            <ui-form-field label="Número de documento" required hint="Debe ser único.">
+              <ui-input formControlName="documentNumber" mono [maxlength]="30" />
+            </ui-form-field>
+            <ui-form-field label="Género" required>
+              <ui-select formControlName="gender" [options]="genders" [placeholder]="null" />
+            </ui-form-field>
+            <ui-form-field label="Fecha de nacimiento">
+              <ui-input type="date" formControlName="birthDate" />
+            </ui-form-field>
+            <ui-form-field label="Correo electrónico" hint="Se usa como usuario del portal.">
+              <ui-input
+                type="email"
+                formControlName="email"
+                autocomplete="email"
+                [maxlength]="150"
+              />
+            </ui-form-field>
+            <ui-form-field label="Celular">
+              <ui-input type="tel" formControlName="phone" autocomplete="tel" [maxlength]="20" />
+            </ui-form-field>
+            <ui-form-field label="Dirección" class="full">
+              <ui-textarea formControlName="address" [rows]="2" [maxlength]="500" />
+            </ui-form-field>
+          </div>
+        }
+        @case ('contract') {
+          <div class="grid grid--2">
+            <ui-form-field label="Tipo de empleado" required>
+              <ui-select
+                formControlName="employeeType"
+                [options]="employeeTypes"
+                [placeholder]="null"
+              />
+            </ui-form-field>
+            <ui-form-field label="Cargo">
+              <ui-input formControlName="position" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Departamento / Área">
+              <ui-input formControlName="department" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Fecha de ingreso">
+              <ui-input type="date" formControlName="hireDate" />
+            </ui-form-field>
+            <ui-form-field
+              label="Tipo de contrato"
+              required
+              hint="Prestación de servicios = contratista: no entra a nómina."
+            >
+              <ui-select
+                formControlName="contractType"
+                [options]="contractTypes"
+                [placeholder]="null"
+              />
+            </ui-form-field>
+            <ui-form-field
+              label="Salario base mensual (COP)"
+              required
+              [errorMessages]="{ min: 'El salario debe ser mayor que cero.' }"
+            >
+              <ui-input
+                type="number"
+                formControlName="baseSalary"
+                prefix="$"
+                [min]="1"
+                [step]="1000"
+                mono
+              />
+            </ui-form-field>
+            <div class="full">
+              <ui-checkbox formControlName="integralSalary">
+                Salario integral (mínimo 13 SMMLV; lo valida la API)
+              </ui-checkbox>
+            </div>
+          </div>
+        }
+        @case ('social') {
+          <h2 class="section-title">Cuenta bancaria</h2>
+          <div class="grid grid--3">
+            <ui-form-field label="Banco">
+              <ui-input formControlName="bankName" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Número de cuenta">
+              <ui-input formControlName="bankAccount" mono [maxlength]="50" />
+            </ui-form-field>
+            <ui-form-field label="Tipo de cuenta">
+              <ui-select
+                formControlName="accountType"
+                [options]="accountTypes"
+                [placeholder]="null"
+              />
+            </ui-form-field>
+          </div>
+          <h2 class="section-title">Seguridad social</h2>
+          <div class="grid grid--2">
+            <ui-form-field label="EPS">
+              <ui-input formControlName="eps" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Fondo de pensiones">
+              <ui-input formControlName="pensionFund" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="ARL">
+              <ui-input formControlName="arl" [maxlength]="100" />
+            </ui-form-field>
+            <ui-form-field label="Clase de riesgo ARL">
+              <ui-select
+                formControlName="arlRiskClass"
+                [options]="riskClasses"
+                [placeholder]="null"
+              />
+            </ui-form-field>
+          </div>
+        }
+        @case ('deductions') {
+          <h2 class="section-title">Deducciones fijas mensuales</h2>
+          <p class="text-muted" style="margin-bottom: var(--space-3)">
+            En nómina quincenal la API las divide por dos. Solo RR. HH. puede modificarlas.
+          </p>
+          <div class="grid grid--3">
+            <ui-form-field label="Libranza">
+              <ui-input type="number" formControlName="fixedLibranza" prefix="$" [min]="0" mono />
+            </ui-form-field>
+            <ui-form-field label="Cuota sindical">
+              <ui-input type="number" formControlName="fixedSindicato" prefix="$" [min]="0" mono />
+            </ui-form-field>
+            <ui-form-field label="Embargo judicial">
+              <ui-input type="number" formControlName="fixedEmbargo" prefix="$" [min]="0" mono />
+            </ui-form-field>
+            <div class="full">
+              <ui-checkbox formControlName="embargoIsAlimony">
+                El embargo es por alimentos (tope del 50 %)
+              </ui-checkbox>
+            </div>
+          </div>
+          <h2 class="section-title">Retención en la fuente</h2>
+          <div class="grid grid--3">
+            <ui-form-field label="Medicina prepagada (mensual)">
+              <ui-input
+                type="number"
+                formControlName="withholdingPrepaidHealth"
+                prefix="$"
+                [min]="0"
+                mono
+              />
+            </ui-form-field>
+            <ui-form-field label="Intereses de vivienda (mensual)">
+              <ui-input
+                type="number"
+                formControlName="withholdingHousingInterest"
+                prefix="$"
+                [min]="0"
+                mono
+              />
+            </ui-form-field>
+            <ui-form-field label="Aportes voluntarios pensión/AFC">
+              <ui-input
+                type="number"
+                formControlName="voluntaryPension"
+                prefix="$"
+                [min]="0"
+                mono
+              />
+            </ui-form-field>
+            <div class="full">
+              <ui-checkbox formControlName="withholdingDependents"
+                >Tiene dependientes económicos</ui-checkbox
+              >
+            </div>
+          </div>
+          @if (!isEdit()) {
+            <h2 class="section-title">Acceso al portal</h2>
+            <ui-checkbox formControlName="createUserAccount">
+              Crear o vincular la cuenta de usuario del portal del empleado
+            </ui-checkbox>
+          }
+        }
+      }
+    </ui-tabs>
+
+    <div class="actions">
+      <div class="cluster">
+        <button
+          ui-button
+          type="button"
+          icon="chevron-left"
+          [disabled]="stepIndex() === 0"
+          (click)="go(-1)"
+        >
+          Anterior
+        </button>
+        <button
+          ui-button
+          type="button"
+          iconRight="chevron-right"
+          [disabled]="stepIndex() === steps.length - 1"
+          (click)="go(1)"
+        >
+          Siguiente
+        </button>
+      </div>
+      <button ui-button type="submit" variant="primary" icon="check" [loading]="saving()">
+        {{ isEdit() ? 'Guardar cambios' : 'Registrar empleado' }}
+      </button>
+    </div>
+  </form>
+}
+
+<ui-modal
+  [(open)]="accountOpen"
+  title="Cuenta del portal"
+  size="sm"
+  [closeOnBackdrop]="false"
+  (closed)="goToCreated()"
+>
+  @if (account(); as acc) {
+    @if (acc.created) {
+      <p>
+        Se creó la cuenta <strong class="font-mono">{{ acc.email }}</strong
+        >.
+      </p>
+      @if (acc.temporaryPassword) {
+        <ui-alert tone="warning" title="Contraseña temporal" style="margin-top: var(--space-4)">
+          <span class="font-mono">{{ acc.temporaryPassword }}</span
+          ><br />
+          Entrégala al empleado; solo se muestra esta vez y deberá cambiarla al ingresar.
+        </ui-alert>
+      }
+    } @else {
+      <p>
+        Se vinculó la cuenta existente <strong class="font-mono">{{ acc.email }}</strong
+        >.
+      </p>
+    }
+  }
+  <ng-container uiModalFooter>
+    <button ui-button variant="primary" (click)="goToCreated()">Ver ficha del empleado</button>
+  </ng-container>
+</ui-modal>

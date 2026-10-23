@@ -1,0 +1,101 @@
+@if (series().length > 1) {
+  <ul class="legend">
+    @for (s of series(); track s.name; let i = $index) {
+      <li>
+        <span
+          class="swatch"
+          [style.background]="s.color ?? 'var(--series-' + ((i % 8) + 1) + ')'"
+        ></span
+        >{{ s.name }}
+      </li>
+    }
+  </ul>
+}
+@if (hasData()) {
+  <svg
+    [attr.width]="width()"
+    [attr.height]="height()"
+    [attr.viewBox]="'0 0 ' + width() + ' ' + height()"
+    role="img"
+    [attr.aria-label]="ariaLabel()"
+    (mouseleave)="hover.set(null)"
+  >
+    <g class="grid">
+      @for (t of yTicks(); track t.value) {
+        <line
+          [attr.x1]="plot().x"
+          [attr.x2]="plot().x + plot().w"
+          [attr.y1]="t.y"
+          [attr.y2]="t.y"
+        />
+      }
+    </g>
+    <g class="axis">
+      @for (t of yTicks(); track t.value) {
+        <text [attr.x]="plot().x - 8" [attr.y]="t.y" text-anchor="end" dominant-baseline="middle">
+          {{ axisFormat()(t.value) }}
+        </text>
+      }
+      @for (l of xLabels(); track $index) {
+        @if (l.show) {
+          <text [attr.x]="l.x" [attr.y]="plot().y + plot().h + 18" text-anchor="middle">
+            {{ l.label }}
+          </text>
+        }
+      }
+    </g>
+    <g>
+      @for (b of bars(); track $index) {
+        <path
+          [attr.d]="barPath(b)"
+          [attr.fill]="b.color"
+          [class.dim]="hover() && hover()!.group !== b.group"
+        />
+        <rect
+          class="hit"
+          [attr.x]="b.x"
+          [attr.y]="plot().y"
+          [attr.width]="b.w"
+          [attr.height]="plot().h"
+          (mouseenter)="hover.set({ group: b.group, series: b.series })"
+        />
+      }
+    </g>
+  </svg>
+  @if (tooltip(); as t) {
+    <div class="tooltip" [style.left.px]="t.left" [style.top.px]="t.top" role="presentation">
+      <strong>{{ t.label }}</strong>
+      <span class="row"
+        ><span class="swatch" [style.background]="t.color"></span>{{ t.name }}:
+        {{ valueFormat()(t.value) }}</span
+      >
+    </div>
+  }
+} @else {
+  <div class="empty" [style.height.px]="height()">Sin datos para mostrar</div>
+}
+<table class="sr-only">
+  <caption>
+    {{
+      ariaLabel()
+    }}
+  </caption>
+  <thead>
+    <tr>
+      <th scope="col">Categoría</th>
+      @for (s of series(); track s.name) {
+        <th scope="col">{{ s.name }}</th>
+      }
+    </tr>
+  </thead>
+  <tbody>
+    @for (label of labels(); track $index; let g = $index) {
+      <tr>
+        <th scope="row">{{ label }}</th>
+        @for (s of series(); track s.name) {
+          <td>{{ valueFormat()(s.values[g] || 0) }}</td>
+        }
+      </tr>
+    }
+  </tbody>
+</table>

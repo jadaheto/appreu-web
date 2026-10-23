@@ -1,0 +1,206 @@
+<div class="page-header">
+  <div>
+    <h1>Asistencia</h1>
+    <p class="page-header__subtitle">Lectura del QR del carnet o pase de lista manual.</p>
+  </div>
+</div>
+
+@if (assignments.isLoading()) {
+  <div class="center"><ui-spinner size="lg" label="Cargando asignaciones…" /></div>
+} @else if (assignments.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar tus asignaciones">{{
+    assignments.error()?.message
+  }}</ui-alert>
+} @else if (!assignmentOptions().length) {
+  <section class="ui-card">
+    <ui-empty-state
+      icon="qr-code"
+      title="Sin materias asignadas"
+      message="Para registrar asistencia necesitas al menos una materia asignada en un salón."
+    />
+  </section>
+} @else {
+  <section class="ui-card mb">
+    <ui-form-field label="Materia y salón actual" required>
+      <ui-select
+        [options]="assignmentOptions()"
+        placeholder="Seleccione la clase…"
+        [ngModel]="selectedKey()"
+        (ngModelChange)="changeAssignment($event)"
+      />
+    </ui-form-field>
+  </section>
+
+  <ui-tabs [tabs]="tabs" [(active)]="tab" ariaLabel="Modo de registro">
+    @switch (tab()) {
+      @case ('qr') {
+        <div class="split">
+          <section class="ui-card" aria-label="Lector">
+            <h2 class="ui-card__title">Lector QR</h2>
+            <app-qr-scanner [disabled]="!selection()" (detected)="onDetected($event)" />
+            <form class="manual-code" [formGroup]="codeForm" (ngSubmit)="submitCode()">
+              <ui-form-field
+                label="Código del carnet"
+                hint="Pega el texto del QR o usa un lector USB y presiona Enter."
+              >
+                <ui-input
+                  formControlName="rawQr"
+                  placeholder="APREU1|colegio|…"
+                  icon="qr-code"
+                  mono
+                  autocomplete="off"
+                />
+              </ui-form-field>
+              <button
+                ui-button
+                type="submit"
+                variant="secondary"
+                icon="check"
+                [disabled]="!selection()"
+                [loading]="registering()"
+              >
+                Registrar
+              </button>
+            </form>
+            @if (!selection()) {
+              <p class="text-muted hint">
+                Selecciona la materia y el salón para habilitar el registro.
+              </p>
+            }
+          </section>
+
+          <section class="ui-card" aria-label="Lista de asistencia">
+            <header class="feed-head">
+              <h2 class="ui-card__title">Lista de asistencia</h2>
+              <ui-badge tone="success">{{ presentCount() }} presentes</ui-badge>
+            </header>
+            <ul class="feed" aria-live="polite" aria-relevant="additions">
+              @for (item of feed(); track item.id) {
+                <li class="item" [class.ok]="item.ok" [class.fail]="!item.ok">
+                  <ui-icon [name]="item.ok ? 'check-circle' : 'exclamation-circle'" [size]="22" />
+                  <div class="txt">
+                    <p class="title">{{ item.title }}</p>
+                    <p class="detail">{{ item.detail }}</p>
+                  </div>
+                  <span class="time font-mono">{{ item.time }}</span>
+                </li>
+              } @empty {
+                <li class="waiting">
+                  <ui-empty-state icon="qr-code" title="Esperando primer escaneo…" />
+                </li>
+              }
+            </ul>
+          </section>
+        </div>
+      }
+      @case ('manual') {
+        <section class="ui-card">
+          @if (!selection()) {
+            <ui-empty-state
+              icon="clipboard"
+              title="Selecciona una clase"
+              message="Elige la materia y el salón para pasar lista."
+            />
+          } @else if (roster.isLoading()) {
+            <div class="center"><ui-spinner size="lg" label="Cargando estudiantes…" /></div>
+          } @else if (roster.error()) {
+            <ui-alert tone="error" title="No se pudo cargar la lista del salón">{{
+              roster.error()?.message
+            }}</ui-alert>
+          } @else if (!rosterRows().length) {
+            <ui-empty-state
+              icon="users"
+              title="Sin estudiantes"
+              message="No hay estudiantes activos en este salón."
+            />
+          } @else {
+            <div class="manual-head">
+              <ui-form-field label="Fecha">
+                <ui-input
+                  type="date"
+                  [max]="today"
+                  [ngModel]="date()"
+                  (ngModelChange)="date.set($event)"
+                />
+              </ui-form-field>
+              <div class="cluster">
+                <button
+                  ui-button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  (click)="markAll('present')"
+                >
+                  Todos presentes
+                </button>
+                <button
+                  ui-button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  (click)="markAll('absent')"
+                >
+                  Todos ausentes
+                </button>
+              </div>
+              <p class="counts text-muted">
+                @for (o of statusOptions; track o.value) {
+                  <span
+                    >{{ o.label }}:
+                    <strong class="font-mono">{{ markCounts()[o.value] }}</strong></span
+                  >
+                }
+              </p>
+            </div>
+            @if (manualError()) {
+              <ui-alert tone="error" class="mb" dismissible (dismissed)="manualError.set(null)">{{
+                manualError()
+              }}</ui-alert>
+            }
+            <ul class="roster">
+              @for (row of rosterRows(); track row.studentId) {
+                <li>
+                  <div class="txt">
+                    <span class="title">{{ row.fullName }}</span>
+                    <span class="detail font-mono">{{ row.code }}</span>
+                  </div>
+                  <div
+                    class="statuses"
+                    role="radiogroup"
+                    [attr.aria-label]="'Asistencia de ' + row.fullName"
+                  >
+                    @for (o of statusOptions; track o.value) {
+                      <button
+                        type="button"
+                        role="radio"
+                        class="status"
+                        [class]="'status status--' + o.value"
+                        [class.active]="statusOf(row.studentId) === o.value"
+                        [attr.aria-checked]="statusOf(row.studentId) === o.value"
+                        (click)="mark(row.studentId, o.value)"
+                      >
+                        {{ o.label }}
+                      </button>
+                    }
+                  </div>
+                </li>
+              }
+            </ul>
+            <footer class="actions">
+              <button
+                ui-button
+                type="button"
+                variant="primary"
+                icon="check"
+                [loading]="savingManual()"
+                (click)="saveManual()"
+              >
+                Guardar asistencia
+              </button>
+            </footer>
+          }
+        </section>
+      }
+    }
+  </ui-tabs>
+}

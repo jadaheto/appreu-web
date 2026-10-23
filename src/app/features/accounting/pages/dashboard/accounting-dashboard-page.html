@@ -1,0 +1,112 @@
+<div class="page-header">
+  <div>
+    <h1>Contabilidad</h1>
+    <p class="page-header__subtitle">Motor PUC/NIIF · Partida doble</p>
+  </div>
+  <div class="actions-row">
+    <label class="sr-only" for="acc-month">Mes</label>
+    <ui-input
+      class="month"
+      inputId="acc-month"
+      type="month"
+      ariaLabel="Mes del tablero"
+      [ngModel]="month()"
+      (ngModelChange)="onMonth($event)"
+    />
+    <a ui-button variant="primary" icon="plus" [routerLink]="base + '/asientos/nuevo'">
+      Nuevo comprobante
+    </a>
+  </div>
+</div>
+
+@if (dashboard.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el tablero" class="mb">
+    Intenta de nuevo más tarde.
+    <button ui-button size="sm" variant="ghost" (click)="dashboard.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+<section class="grid grid--4 mb" aria-label="Indicadores del mes">
+  <ui-stat-card
+    label="Ingresos del mes"
+    icon="banknotes"
+    tone="success"
+    [loading]="dashboard.isLoading()"
+    [value]="data() ? cop(data()!.income) : null"
+    [link]="base + '/reportes/resultados'"
+    linkLabel="Estado de resultados"
+  />
+  <ui-stat-card
+    label="Gastos y costos"
+    icon="wallet"
+    tone="danger"
+    [loading]="dashboard.isLoading()"
+    [value]="data() ? cop(data()!.expenses + data()!.costs) : null"
+    [hint]="data() ? 'Gastos ' + cop(data()!.expenses) + ' · Costos ' + cop(data()!.costs) : ''"
+  />
+  <ui-stat-card
+    label="Utilidad neta"
+    icon="chart-bar"
+    tone="primary"
+    [loading]="dashboard.isLoading()"
+    [value]="data() ? cop(data()!.netIncome) : null"
+  />
+  <ui-stat-card
+    label="Asientos del mes"
+    icon="document-text"
+    tone="warning"
+    [loading]="dashboard.isLoading()"
+    [value]="data()?.entriesCount ?? null"
+    [link]="base + '/asientos'"
+    linkLabel="Ver comprobantes"
+  />
+</section>
+
+<section class="grid grid--3">
+  <article class="ui-card span-2">
+    <div class="card-head">
+      <h2 class="ui-card__title">Últimos asientos contables</h2>
+      <a [routerLink]="base + '/asientos'" class="muted">Ver todos →</a>
+    </div>
+    <ui-data-table
+      [columns]="columns"
+      [rows]="data()?.latestEntries ?? []"
+      [loading]="dashboard.isLoading()"
+      rowClickable
+      emptyTitle="Sin asientos registrados aún"
+      [rowClass]="rowClass"
+      (rowClick)="open($event)"
+    >
+      <ng-template uiCell="date" let-value="value">{{ $any(value) | day }}</ng-template>
+      <ng-template uiCell="status" let-row>
+        <ui-badge [tone]="statusTones[row.status]">{{ statusLabels[row.status] }}</ui-badge>
+      </ng-template>
+    </ui-data-table>
+  </article>
+
+  <div class="stack">
+    <article class="ui-card">
+      <h2 class="ui-card__title">Periodo actual</h2>
+      @if (data()?.currentPeriod; as period) {
+        <p class="period-name">{{ period.name }}</p>
+        <p class="muted">{{ period.startDate | day }} — {{ period.endDate | day }}</p>
+        <p><ui-badge [status]="period.status" /></p>
+      } @else if (!dashboard.isLoading()) {
+        <p class="muted">No hay periodo contable para hoy.</p>
+        <a ui-button size="sm" icon="plus" [routerLink]="base + '/periodos'">Crear periodo</a>
+      }
+    </article>
+
+    <article class="ui-card">
+      <h2 class="ui-card__title">Accesos rápidos</h2>
+      <nav class="shortcuts" aria-label="Accesos rápidos de contabilidad">
+        @for (s of shortcuts; track s.label) {
+          <a class="shortcut" [routerLink]="s.link" [queryParams]="s.query">
+            <ui-icon [name]="s.icon" [size]="18" />
+            {{ s.label }}
+          </a>
+        }
+      </nav>
+    </article>
+  </div>
+</section>

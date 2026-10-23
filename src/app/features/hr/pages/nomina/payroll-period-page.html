@@ -1,0 +1,428 @@
+@if (detail.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el período">{{
+    apiMessage(detail.error())
+  }}</ui-alert>
+  <p style="margin-top: var(--space-4)">
+    <a ui-button variant="ghost" icon="arrow-left" [routerLink]="base">Volver a nómina</a>
+  </p>
+} @else if (!data()) {
+  <div class="ui-card" style="text-align: center"><ui-spinner size="lg" /></div>
+} @else {
+  @let p = period()!;
+  @let d = data()!;
+  <div class="page-header">
+    <div>
+      <div class="cluster">
+        <h1>{{ p.name }}</h1>
+        <app-hr-status-badge kind="period" [status]="p.status" />
+      </div>
+      <p class="page-header__subtitle">
+        {{ p.periodLabel }} · {{ frequencyLabels[p.frequency] }} · {{ shortDate(p.startDate) }} —
+        {{ shortDate(p.endDate) }} · Pago {{ shortDate(p.paymentDate) }}
+      </p>
+    </div>
+    <div class="cluster">
+      <a ui-button variant="ghost" icon="arrow-left" [routerLink]="base">Períodos</a>
+      @if (canCalculate()) {
+        <button
+          ui-button
+          variant="primary"
+          icon="calculator"
+          [loading]="busy() === 'calculate'"
+          (click)="calculate()"
+        >
+          {{ p.status === 'calculated' ? 'Reliquidar' : 'Liquidar' }}
+        </button>
+      }
+      @if (canApprove()) {
+        <button
+          ui-button
+          variant="success"
+          icon="check-circle"
+          [loading]="busy() === 'approve'"
+          (click)="approve()"
+        >
+          Aprobar
+        </button>
+      }
+      @if (canPay()) {
+        <button
+          ui-button
+          variant="success"
+          icon="banknotes"
+          [loading]="busy() === 'pay'"
+          (click)="pay()"
+        >
+          Registrar pago
+        </button>
+      }
+      @if (canCancel()) {
+        <button ui-button variant="danger" icon="x-mark" (click)="openCancel()">Anular</button>
+      }
+    </div>
+  </div>
+
+  <ol class="timeline" aria-label="Estado del período">
+    <li [class.done]="!!p.calculatedAt">
+      <strong>Liquidado</strong
+      ><span>{{ p.calculatedAt ? (p.calculatedAt | dateEs: 'datetime') : 'Pendiente' }}</span>
+    </li>
+    <li [class.done]="!!p.approvedAt">
+      <strong>Aprobado</strong
+      ><span>{{ p.approvedAt ? (p.approvedAt | dateEs: 'datetime') : 'Pendiente' }}</span>
+    </li>
+    <li [class.done]="!!p.paidAt">
+      <strong>Pagado</strong
+      ><span>{{ p.paidAt ? (p.paidAt | dateEs: 'datetime') : 'Pendiente' }}</span>
+    </li>
+  </ol>
+
+  @if (actionError(); as err) {
+    <ui-alert
+      tone="error"
+      [title]="err.title"
+      class="mb"
+      dismissible
+      (dismissed)="actionError.set(null)"
+    >
+      {{ err.message }}
+    </ui-alert>
+  }
+  @if (p.status === 'cancelled') {
+    <ui-alert tone="warning" title="Período anulado" class="mb">
+      Motivo: {{ p.cancellationReason || '—' }}
+    </ui-alert>
+  }
+  @if (p.status === 'draft') {
+    <ui-alert tone="info" class="mb">
+      Registre las novedades y liquide el período para generar los desprendibles.
+    </ui-alert>
+  }
+  @if (warnings().length) {
+    <ui-alert
+      tone="warning"
+      title="Avisos de la liquidación"
+      class="mb"
+      dismissible
+      (dismissed)="warnings.set([])"
+    >
+      <ul class="warnings">
+        @for (w of warnings(); track w.employeeId) {
+          <li>
+            <strong>{{ employeeName(w.employeeId) }}:</strong> {{ w.messages.join(' ') }}
+          </li>
+        }
+      </ul>
+    </ui-alert>
+  }
+
+  <section class="grid grid--4 mb" aria-label="Totales del período">
+    <ui-stat-card
+      label="Devengado bruto"
+      variant="border"
+      tone="info"
+      [value]="p.grossTotal | cop"
+    />
+    <ui-stat-card
+      label="Deducciones"
+      variant="border"
+      tone="danger"
+      [value]="p.deductionsTotal | cop"
+    />
+    <ui-stat-card label="Neto a pagar" variant="border" tone="success" [value]="p.netTotal | cop" />
+    <ui-stat-card
+      label="Costo del empleador"
+      variant="border"
+      tone="neutral"
+      [value]="d.employerCostTotal | cop"
+      hint="Aportes informativos"
+    />
+  </section>
+
+  <ui-tabs [tabs]="tabs()" [(active)]="tab" ariaLabel="Detalle del período">
+    @switch (tab()) {
+      @case ('payments') {
+        <ui-data-table
+          caption="Liquidación por empleado"
+          [columns]="paymentColumns"
+          [rows]="d.payments"
+          [actions]="paymentActions"
+          rowClickable
+          emptyIcon="users"
+          emptyTitle="Sin desprendibles"
+          [emptyMessage]="
+            p.status === 'draft'
+              ? 'Liquide el período para generar los desprendibles.'
+              : 'No hay empleados liquidados.'
+          "
+          (action)="onPaymentAction($event)"
+          (rowClick)="showPayment($event)"
+        >
+          <ng-template uiCell="employeeName" let-row>
+            <strong>{{ row.employeeName ?? 'Empleado #' + row.employeeId }}</strong>
+            <div class="text-muted small">
+              <span class="font-mono">{{ row.employeeCode }}</span> · {{ row.documentNumber }}
+              @if (row.notes.length) {
+                · <span title="{{ row.notes.join(' ') }}">{{ row.notes.length }} nota(s)</span>
+              }
+            </div>
+          </ng-template>
+        </ui-data-table>
+      }
+      @case ('novelties') {
+        @if (canEditNovelties()) {
+          <div class="cluster" style="justify-content: flex-end; margin-bottom: var(--space-4)">
+            <button ui-button variant="primary" icon="plus" (click)="openNovelty()">
+              Registrar novedad
+            </button>
+          </div>
+        } @else if (!editable()) {
+          <ui-alert tone="info" class="mb"
+            >El período ya no admite cambios en las novedades.</ui-alert
+          >
+        }
+        <ui-data-table
+          caption="Novedades del período"
+          [columns]="noveltyColumns"
+          [rows]="d.novelties"
+          [actions]="noveltyActions()"
+          emptyIcon="clipboard"
+          emptyTitle="Sin novedades"
+          emptyMessage="Horas extra, bonificaciones y descuentos de este período."
+          (action)="onNoveltyAction($event)"
+        >
+          <ng-template uiCell="type" let-row>{{ noveltyLabels[row.type] }}</ng-template>
+          <ng-template uiCell="amount" let-row>
+            <span [class.minus]="isDeduction(row.type)" [class.plus]="!isDeduction(row.type)">
+              {{ isDeduction(row.type) ? '-' : '+' }}{{ row.amount | cop }}
+            </span>
+          </ng-template>
+        </ui-data-table>
+      }
+    }
+  </ui-tabs>
+}
+
+<!-- Detalle de liquidación por empleado -->
+<ui-modal
+  [(open)]="paymentOpen"
+  [title]="'Liquidación · ' + (selectedPayment()?.employeeName ?? '')"
+  [description]="
+    selectedPayment()
+      ? selectedPayment()!.workedDays + ' días laborados · IBC ' + (selectedPayment()!.ibc | cop)
+      : ''
+  "
+  size="lg"
+>
+  @if (selectedPayment(); as pay) {
+    <div class="breakdown">
+      <table>
+        <caption class="plus">
+          Devengados
+        </caption>
+        <tbody>
+          <tr>
+            <td>Sueldo básico</td>
+            <td class="num">{{ pay.earnings.basicSalary | cop }}</td>
+          </tr>
+          <tr>
+            <td>Licencias e incapacidades</td>
+            <td class="num">{{ pay.earnings.leavePay | cop }}</td>
+          </tr>
+          <tr>
+            <td>Horas extra y recargos</td>
+            <td class="num">{{ pay.earnings.overtime | cop }}</td>
+          </tr>
+          <tr>
+            <td>Auxilio de transporte</td>
+            <td class="num">{{ pay.earnings.transportAllowance | cop }}</td>
+          </tr>
+          <tr>
+            <td>Bonificaciones</td>
+            <td class="num">{{ pay.earnings.bonuses | cop }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total devengado</td>
+            <td class="num">{{ pay.earnings.gross | cop }}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <table>
+        <caption class="minus">
+          Deducciones
+        </caption>
+        <tbody>
+          <tr>
+            <td>Salud</td>
+            <td class="num">{{ pay.deductions.health | cop }}</td>
+          </tr>
+          <tr>
+            <td>Pensión</td>
+            <td class="num">{{ pay.deductions.pension | cop }}</td>
+          </tr>
+          <tr>
+            <td>Fondo de solidaridad</td>
+            <td class="num">{{ pay.deductions.solidarityFund | cop }}</td>
+          </tr>
+          <tr>
+            <td>Retención en la fuente</td>
+            <td class="num">{{ pay.deductions.withholding | cop }}</td>
+          </tr>
+          <tr>
+            <td>Libranza</td>
+            <td class="num">{{ pay.deductions.libranza | cop }}</td>
+          </tr>
+          <tr>
+            <td>Cuota sindical</td>
+            <td class="num">{{ pay.deductions.sindicato | cop }}</td>
+          </tr>
+          <tr>
+            <td>Embargo</td>
+            <td class="num">{{ pay.deductions.embargo | cop }}</td>
+          </tr>
+          <tr>
+            <td>Otros descuentos</td>
+            <td class="num">{{ pay.deductions.other | cop }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total deducciones</td>
+            <td class="num">{{ pay.deductions.total | cop }}</td>
+          </tr>
+        </tfoot>
+      </table>
+      <table>
+        <caption>
+          Aportes del empleador (informativo)
+        </caption>
+        <tbody>
+          <tr>
+            <td>Salud</td>
+            <td class="num">{{ pay.employer.health | cop }}</td>
+          </tr>
+          <tr>
+            <td>Pensión</td>
+            <td class="num">{{ pay.employer.pension | cop }}</td>
+          </tr>
+          <tr>
+            <td>ARL</td>
+            <td class="num">{{ pay.employer.arl | cop }}</td>
+          </tr>
+          <tr>
+            <td>Caja de compensación</td>
+            <td class="num">{{ pay.employer.ccf | cop }}</td>
+          </tr>
+          <tr>
+            <td>SENA</td>
+            <td class="num">{{ pay.employer.sena | cop }}</td>
+          </tr>
+          <tr>
+            <td>ICBF</td>
+            <td class="num">{{ pay.employer.icbf | cop }}</td>
+          </tr>
+        </tbody>
+        <tfoot>
+          <tr>
+            <td>Total empleador</td>
+            <td class="num">{{ pay.employer.total | cop }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="net-line">
+      Neto a pagar: <strong class="font-mono">{{ pay.net | cop }}</strong>
+    </p>
+    @if (pay.notes.length) {
+      <ui-alert tone="info" title="Notas de la liquidación">
+        <ul class="warnings">
+          @for (n of pay.notes; track $index) {
+            <li>{{ n }}</li>
+          }
+        </ul>
+      </ui-alert>
+    }
+  }
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="paymentOpen.set(false)">Cerrar</button>
+    @if (selectedPayment(); as pay) {
+      <a ui-button variant="primary" icon="printer" [routerLink]="[base, 'desprendibles', pay.id]"
+        >Desprendible</a
+      >
+    }
+  </ng-container>
+</ui-modal>
+
+<!-- Registrar novedad -->
+<ui-modal
+  [(open)]="noveltyOpen"
+  title="Registrar novedad"
+  description="Valor del período; no se prorratea."
+>
+  <form
+    id="novelty-form"
+    class="stack"
+    [formGroup]="noveltyForm"
+    (ngSubmit)="saveNovelty()"
+    novalidate
+  >
+    @if (noveltyError()) {
+      <ui-alert tone="error">{{ noveltyError() }}</ui-alert>
+    }
+    <ui-form-field label="Empleado" required>
+      <ui-select formControlName="employeeId" [options]="employeeList()" />
+    </ui-form-field>
+    <ui-form-field label="Tipo de novedad" required>
+      <ui-select formControlName="type" [options]="noveltyTypes" />
+    </ui-form-field>
+    <ui-form-field
+      label="Valor (COP)"
+      required
+      [errorMessages]="{ min: 'El valor debe ser mayor que cero.' }"
+    >
+      <ui-input type="number" formControlName="amount" prefix="$" [min]="1" mono />
+    </ui-form-field>
+    <ui-form-field label="Descripción">
+      <ui-textarea formControlName="description" [rows]="2" [maxlength]="255" />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="noveltyOpen.set(false)">Cancelar</button>
+    <button
+      ui-button
+      type="submit"
+      form="novelty-form"
+      variant="primary"
+      [loading]="savingNovelty()"
+    >
+      Registrar
+    </button>
+  </ng-container>
+</ui-modal>
+
+<!-- Anular -->
+<ui-modal [(open)]="cancelOpen" title="Anular período" size="sm">
+  <form
+    id="cancel-form"
+    class="stack"
+    [formGroup]="cancelForm"
+    (ngSubmit)="cancelPeriod()"
+    novalidate
+  >
+    <ui-alert tone="warning">La anulación no se puede deshacer.</ui-alert>
+    @if (cancelError()) {
+      <ui-alert tone="error">{{ cancelError() }}</ui-alert>
+    }
+    <ui-form-field label="Motivo de anulación" required>
+      <ui-textarea formControlName="reason" [rows]="3" [maxlength]="255" />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="cancelOpen.set(false)">Volver</button>
+    <button ui-button type="submit" form="cancel-form" variant="danger" [loading]="cancelling()">
+      Anular período
+    </button>
+  </ng-container>
+</ui-modal>

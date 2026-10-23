@@ -1,0 +1,142 @@
+<div class="scroll" [attr.aria-busy]="loading() || null">
+  <table>
+    @if (caption()) {
+      <caption class="sr-only">
+        {{
+          caption()
+        }}
+      </caption>
+    }
+    <thead>
+      <tr>
+        @if (selectable()) {
+          <th class="col-select" scope="col">
+            <ui-checkbox
+              ariaLabel="Seleccionar todas las filas"
+              [checked]="allSelected()"
+              [indeterminate]="someSelected()"
+              [disabled]="!rows().length"
+              (checkedChange)="toggleAll($event)"
+            />
+          </th>
+        }
+        @for (col of columns(); track col.key) {
+          <th
+            scope="col"
+            [style.width]="col.width"
+            [attr.aria-sort]="ariaSort(col)"
+            [class]="
+              'align-' + (col.align ?? 'start') + (col.hideBelow ? ' hide-' + col.hideBelow : '')
+            "
+          >
+            @if (col.sortable) {
+              <button type="button" class="sort" (click)="toggleSort(col)">
+                {{ col.header }}
+                <ui-icon
+                  [name]="
+                    sort()?.key === col.key
+                      ? sort()!.direction === 'asc'
+                        ? 'arrow-up'
+                        : 'arrow-down'
+                      : 'arrows-up-down'
+                  "
+                  [size]="12"
+                  [class.idle]="sort()?.key !== col.key"
+                />
+              </button>
+            } @else {
+              {{ col.header }}
+            }
+          </th>
+        }
+        @if (actions().length) {
+          <th scope="col" class="col-actions align-end"><span class="sr-only">Acciones</span></th>
+        }
+      </tr>
+    </thead>
+    <tbody>
+      @if (loading() && !rows().length) {
+        <tr class="state">
+          <td [attr.colspan]="colspan()"><ui-spinner size="lg" /></td>
+        </tr>
+      } @else {
+        @for (row of displayRows(); track keyOf(row); let i = $index) {
+          <tr
+            [class.selected]="isSelected(row)"
+            [class.clickable]="rowClickable()"
+            [class]="rowClass()?.(row) ?? ''"
+            (click)="onRowClick(row, $event)"
+          >
+            @if (selectable()) {
+              <td class="col-select">
+                <ui-checkbox
+                  [ariaLabel]="'Seleccionar fila ' + (i + 1)"
+                  [checked]="isSelected(row)"
+                  (checkedChange)="toggleRow(row, $event)"
+                />
+              </td>
+            }
+            @for (col of columns(); track col.key) {
+              <td
+                [class]="
+                  'align-' +
+                  (col.align ?? 'start') +
+                  (col.hideBelow ? ' hide-' + col.hideBelow : '')
+                "
+                [class.mono]="col.mono"
+              >
+                @if (templates().get(col.key); as tpl) {
+                  <ng-container
+                    *ngTemplateOutlet="
+                      tpl;
+                      context: { $implicit: row, value: cellValue(row, col), index: i }
+                    "
+                  />
+                } @else {
+                  {{ cellText(row, col) }}
+                }
+              </td>
+            }
+            @if (actions().length) {
+              <td class="col-actions align-end">
+                <div class="actions">
+                  @for (a of visibleActions(row); track a.id) {
+                    <button
+                      ui-button
+                      type="button"
+                      size="sm"
+                      variant="ghost"
+                      iconOnly
+                      [icon]="a.icon"
+                      [class.danger]="a.tone === 'danger'"
+                      [attr.aria-label]="a.label"
+                      [attr.title]="a.label"
+                      [disabled]="a.disabled?.(row) ?? false"
+                      (click)="action.emit({ action: a.id, row })"
+                    ></button>
+                  }
+                </div>
+              </td>
+            }
+          </tr>
+        } @empty {
+          <tr class="state">
+            <td [attr.colspan]="colspan()">
+              <ui-empty-state
+                [icon]="emptyIcon()"
+                [title]="emptyTitle()"
+                [message]="emptyMessage()"
+              >
+                <ng-content select="[uiTableEmpty]" />
+              </ui-empty-state>
+            </td>
+          </tr>
+        }
+      }
+    </tbody>
+  </table>
+  @if (loading() && rows().length) {
+    <div class="overlay"><ui-spinner size="lg" /></div>
+  }
+</div>
+<div class="footer"><ng-content select="[uiTableFooter]" /></div>

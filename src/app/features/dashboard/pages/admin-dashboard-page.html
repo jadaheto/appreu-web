@@ -1,0 +1,253 @@
+<div class="page-header">
+  <div>
+    <h1>Hola, {{ firstName() }} 👋</h1>
+    <p class="page-header__subtitle">
+      Resumen general de la institución
+      @if (data(); as d) {
+        · {{ day(d.today) | dateEs: 'long' }} · Año lectivo {{ d.academicYear }}
+      }
+    </p>
+  </div>
+</div>
+
+@if (errorMessage(); as e) {
+  <ui-alert tone="error" title="No se pudieron cargar los indicadores" class="mb">
+    {{ e }}
+    <button ui-button size="sm" variant="ghost" icon="arrows-up-down" (click)="summary.reload()">
+      Reintentar
+    </button>
+  </ui-alert>
+}
+
+<section class="grid grid--4 mb" aria-label="Indicadores principales">
+  @if (summary.isLoading() || finance()) {
+    <ui-stat-card
+      label="Ingresos hoy"
+      icon="banknotes"
+      tone="primary"
+      [loading]="summary.isLoading()"
+      [value]="finance() ? cop(finance()!.todayRevenue.amount) : null"
+      [hint]="finance() ? finance()!.todayRevenue.payments + ' pagos · Al día de hoy' : ''"
+    />
+    <ui-stat-card
+      label="Total vencido"
+      icon="exclamation-triangle"
+      tone="danger"
+      [loading]="summary.isLoading()"
+      [value]="finance() ? cop(finance()!.overdue.amount) : null"
+      [hint]="finance() ? finance()!.overdue.debtors + ' deudores' : ''"
+      link="/admin/finanzas"
+      linkLabel="Ver cartera"
+    />
+    <ui-stat-card
+      label="Ticket promedio"
+      icon="chart-bar"
+      tone="warning"
+      [loading]="summary.isLoading()"
+      [value]="finance() ? cop(finance()!.averageTicket.amount) : null"
+      [hint]="ticketHint()"
+    />
+  }
+  <ui-stat-card
+    label="Alumnos activos"
+    icon="users"
+    tone="success"
+    [loading]="summary.isLoading()"
+    [value]="data()?.students?.active ?? null"
+    [hint]="
+      data()
+        ? data()!.students.total +
+          ' totales' +
+          (data()!.staff ? ' · ' + data()!.staff!.activeEmployees + ' empleados' : '')
+        : ''
+    "
+  />
+  @if (!summary.isLoading() && !finance()) {
+    @if (data()?.staff; as staff) {
+      <ui-stat-card
+        label="Empleados activos"
+        icon="briefcase"
+        tone="info"
+        [value]="staff.activeEmployees"
+        link="/admin/rrhh"
+        linkLabel="Ver personal"
+      />
+    }
+    @if (data()?.incidents; as inc) {
+      <ui-stat-card
+        label="Incidencias pendientes"
+        icon="exclamation-circle"
+        tone="warning"
+        [value]="inc.pending"
+        link="/admin/incidencias"
+        linkLabel="Revisar"
+      />
+    }
+  }
+</section>
+
+<section class="grid grid--3 mb">
+  @if (finance()) {
+    <article class="ui-card span-2">
+      <div class="card-head">
+        <h2 class="ui-card__title flat">
+          Ingresos mensuales <span class="text-muted">· últimos 6 meses</span>
+        </h2>
+        <a ui-button size="sm" variant="ghost" routerLink="/admin/finanzas">Ver finanzas</a>
+      </div>
+      @if (incomeSeries()[0].values.length) {
+        <ui-bar-chart
+          [labels]="monthLabels()"
+          [series]="incomeSeries()"
+          [height]="256"
+          ariaLabel="Ingresos mensuales"
+          [valueFormat]="copFormatter"
+        />
+      } @else {
+        <ui-empty-state
+          icon="chart-bar"
+          title="Sin datos de ingresos"
+          message="La gráfica aparecerá cuando haya pagos registrados."
+        />
+      }
+    </article>
+  }
+  <article class="ui-card" [class.span-2]="!finance()">
+    <h2 class="ui-card__title">
+      Distribución por nivel <span class="text-muted">· alumnos activos</span>
+    </h2>
+    @if (levels().length) {
+      <ui-donut-chart
+        [data]="levels()"
+        [height]="192"
+        centerLabel="Alumnos"
+        ariaLabel="Alumnos activos por nivel"
+      />
+    } @else {
+      <ui-empty-state
+        icon="academic-cap"
+        [title]="summary.isLoading() ? 'Cargando…' : 'Sin datos'"
+        message="Se mostrará cuando existan matrículas."
+      />
+    }
+  </article>
+  @if (!finance() && (data()?.staff || data()?.incidents)) {
+    <article class="ui-card quick">
+      <h2 class="ui-card__title">Accesos rápidos</h2>
+      @if (data()?.incidents; as inc) {
+        <a class="quick__item" routerLink="/admin/incidencias">
+          <span class="quick__icon warn"><ui-icon name="exclamation-circle" [size]="22" /></span>
+          <span
+            ><strong class="font-mono">{{ inc.pending }}</strong> incidencias pendientes</span
+          >
+        </a>
+      }
+      @if (data()?.staff; as staff) {
+        <a class="quick__item" routerLink="/admin/rrhh">
+          <span class="quick__icon info"><ui-icon name="briefcase" [size]="22" /></span>
+          <span
+            ><strong class="font-mono">{{ staff.activeEmployees }}</strong> empleados activos</span
+          >
+        </a>
+      }
+    </article>
+  }
+</section>
+
+@if (finance(); as f) {
+  <section class="grid grid--2 mb">
+    <article class="ui-card flush">
+      <div class="card-head pad">
+        <h2 class="ui-card__title flat">Últimos pagos</h2>
+        <a ui-button size="sm" variant="ghost" routerLink="/admin/finanzas">Ir a caja</a>
+      </div>
+      <ui-data-table
+        caption="Últimos pagos"
+        [columns]="paymentColumns"
+        [rows]="f.recentPayments"
+        trackBy="paymentId"
+        emptyIcon="banknotes"
+        emptyTitle="No hay pagos registrados aún"
+      >
+        <ng-template uiCell="receiptNumber" let-row>
+          <div class="who">
+            <strong class="font-mono accent">{{ row.receiptNumber ?? '#' + row.paymentId }}</strong>
+            <span class="text-muted">{{ paidDate(row.paidAt) | dateEs }}</span>
+          </div>
+        </ng-template>
+        <ng-template uiCell="studentName" let-row>
+          <div class="who">
+            <strong>{{ row.studentName }}</strong>
+            <span class="font-mono text-muted">{{ row.studentCode }}</span>
+          </div>
+        </ng-template>
+        <ng-template uiCell="method" let-row>{{ methodLabel(row.method) }}</ng-template>
+        <ng-template uiCell="amount" let-row
+          ><span class="font-mono">{{ cop(row.amount) }}</span></ng-template
+        >
+      </ui-data-table>
+    </article>
+
+    <article class="ui-card flush">
+      <div class="card-head pad">
+        <h2 class="ui-card__title flat">Cartera vencida</h2>
+        <a ui-button size="sm" variant="ghost" routerLink="/admin/finanzas">Ver cartera</a>
+      </div>
+      <p class="legend pad-x" aria-label="Semáforo de riesgo">
+        <ui-badge tone="success" dot>Bajo &lt;30 d</ui-badge>
+        <ui-badge tone="warning" dot>Medio 30–60 d</ui-badge>
+        <ui-badge tone="warning" dot>Alto 60–90 d</ui-badge>
+        <ui-badge tone="danger" dot>Crítico &gt;90 d</ui-badge>
+      </p>
+      <ui-data-table
+        caption="Cartera vencida"
+        [columns]="debtorColumns"
+        [rows]="f.topDebtors"
+        trackBy="studentId"
+        emptyIcon="check-circle"
+        emptyTitle="¡Sin cartera vencida! 🎉"
+      >
+        <ng-template uiCell="studentName" let-row>
+          <div class="who">
+            <strong>{{ row.studentName }}</strong>
+            <span class="font-mono text-muted">{{ row.studentCode }}</span>
+          </div>
+        </ng-template>
+        <ng-template uiCell="gradeName" let-row>{{ row.gradeName ?? '—' }}</ng-template>
+        <ng-template uiCell="risk" let-row>
+          <ui-badge [tone]="riskTone(row.risk)" [attr.title]="row.daysOverdue + ' días de mora'">{{
+            riskLabel(row.risk)
+          }}</ui-badge>
+        </ng-template>
+        <ng-template uiCell="balance" let-row
+          ><span class="font-mono danger">{{ cop(row.balance) }}</span></ng-template
+        >
+      </ui-data-table>
+    </article>
+  </section>
+
+  @if (data()?.incidents || data()?.staff) {
+    <section class="grid grid--3" aria-label="Accesos rápidos">
+      @if (data()?.incidents; as inc) {
+        <a class="quick__item ui-card" routerLink="/admin/incidencias">
+          <span class="quick__icon warn"><ui-icon name="exclamation-circle" [size]="22" /></span>
+          <span
+            ><strong class="font-mono">{{ inc.pending }}</strong> incidencias pendientes</span
+          >
+        </a>
+      }
+      @if (data()?.staff; as staff) {
+        <a class="quick__item ui-card" routerLink="/admin/rrhh">
+          <span class="quick__icon info"><ui-icon name="briefcase" [size]="22" /></span>
+          <span
+            ><strong class="font-mono">{{ staff.activeEmployees }}</strong> empleados activos</span
+          >
+        </a>
+      }
+      <a class="quick__item ui-card" routerLink="/admin/facturacion">
+        <span class="quick__icon"><ui-icon name="document-check" [size]="22" /></span>
+        <span>DIAN · Facturación electrónica</span>
+      </a>
+    </section>
+  }
+}

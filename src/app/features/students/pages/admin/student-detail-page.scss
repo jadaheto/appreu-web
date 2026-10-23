@@ -1,0 +1,33 @@
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 0;
+}
+.head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-5);
+  margin-bottom: var(--space-5);
+}
+.who {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.who h1 {
+  font-size: var(--text-2xl);
+}
+.meta {
+  font-size: var(--text-sm);
+}
+@media print {
+  :host ::ng-deep [role='tablist'] {
+    display: none;
+  }
+  .ui-card {
+    box-shadow: none;
+    border: 0;
+    padding: 0;
+  }
+}

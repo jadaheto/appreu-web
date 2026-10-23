@@ -1,0 +1,225 @@
+<div class="page-header">
+  <div>
+    <h1>Gestión académica {{ currentYear() ?? '' }}</h1>
+    <p class="page-header__subtitle">Grados, plan de estudios, salones y directores de grupo.</p>
+  </div>
+  <div class="cluster">
+    <ui-select
+      class="year"
+      ariaLabel="Año lectivo"
+      [placeholder]="null"
+      [options]="yearOptions()"
+      [ngModel]="currentYear()"
+      (ngModelChange)="changeYear($event)"
+    />
+    <a ui-button variant="secondary" icon="calendar" routerLink="/admin/periodos">Períodos</a>
+    <a ui-button variant="secondary" icon="clipboard" routerLink="asistencia">Asistencia</a>
+    <button ui-button type="button" variant="secondary" icon="plus" (click)="openGrade(null)">
+      Nuevo grado
+    </button>
+    <button ui-button type="button" variant="primary" icon="plus" (click)="openClassroom(null)">
+      Nuevo salón
+    </button>
+  </div>
+</div>
+
+@if (data.error()) {
+  <ui-alert tone="error" title="No se pudo cargar la información académica" class="mb">
+    {{ data.error()?.message }}
+  </ui-alert>
+}
+
+<section class="grid grid--4 mb" aria-label="Indicadores académicos">
+  <ui-stat-card
+    label="Año lectivo"
+    icon="calendar"
+    tone="primary"
+    [loading]="data.isLoading()"
+    [value]="currentYear()"
+    hint="Configurado en la institución"
+  />
+  <ui-stat-card
+    label="Grados"
+    icon="academic-cap"
+    tone="info"
+    [loading]="data.isLoading()"
+    [value]="dashboard()?.totals?.grades ?? null"
+    hint="Catálogo de grados"
+  />
+  <ui-stat-card
+    label="Salones"
+    icon="building"
+    tone="success"
+    [loading]="data.isLoading()"
+    [value]="dashboard()?.totals?.classrooms ?? null"
+    [hint]="'Del año ' + (currentYear() ?? '')"
+  />
+  <ui-stat-card
+    label="Asignaciones docentes"
+    icon="briefcase"
+    tone="warning"
+    [loading]="data.isLoading()"
+    [value]="dashboard()?.totals?.teachingAssignments ?? null"
+    hint="Carga académica del año"
+  />
+</section>
+
+<ui-tabs [tabs]="tabs()" [(active)]="tab" ariaLabel="Estructura académica">
+  @switch (tab()) {
+    @case ('grades') {
+      <ui-data-table
+        caption="Grados"
+        [columns]="gradeColumns"
+        [rows]="dashboard()?.grades ?? []"
+        [loading]="data.isLoading()"
+        [actions]="gradeActions"
+        emptyTitle="Sin grados"
+        emptyMessage="Crea el primer grado para armar su plan de estudios."
+        emptyIcon="academic-cap"
+        (action)="onGradeAction($event)"
+      >
+        <ng-template uiCell="name" let-row>
+          <a [routerLink]="['grados', row.id, 'materias']">{{ row.name }}</a>
+        </ng-template>
+        <ng-template uiCell="level" let-value="value">
+          <ui-badge tone="primary">{{ levelLabel($any(value)) }}</ui-badge>
+        </ng-template>
+      </ui-data-table>
+    }
+    @case ('classrooms') {
+      <ui-data-table
+        caption="Salones"
+        [columns]="classroomColumns"
+        [rows]="dashboard()?.classrooms ?? []"
+        [loading]="data.isLoading()"
+        [actions]="classroomActions"
+        emptyTitle="Sin salones"
+        [emptyMessage]="'No hay salones creados para ' + (currentYear() ?? 'este año') + '.'"
+        emptyIcon="building"
+        (action)="onClassroomAction($event)"
+      >
+        <ng-template uiCell="name" let-row>
+          <a [routerLink]="['salones', row.id, 'carga']">{{ row.name }}</a>
+        </ng-template>
+        <ng-template uiCell="director" let-row>
+          @if (row.director) {
+            {{ row.director.name }}
+          } @else {
+            <span class="muted">Sin asignar</span>
+          }
+        </ng-template>
+        <ng-template uiCell="studentsCount" let-row>
+          <span
+            class="font-mono"
+            [class.full]="row.isFull"
+            [attr.title]="row.isFull ? 'Salón lleno' : null"
+          >
+            {{ row.studentsCount }}
+          </span>
+          @if (row.isFull) {
+            <ui-badge tone="danger">Lleno</ui-badge>
+          }
+        </ng-template>
+      </ui-data-table>
+    }
+  }
+</ui-tabs>
+
+<!-- Modal grado -->
+<ui-modal [(open)]="gradeModal" [title]="editingGrade() ? 'Editar grado' : 'Nuevo grado'" size="sm">
+  <form id="grade-form" class="form" [formGroup]="gradeForm" (ngSubmit)="saveGrade()">
+    @if (formError()) {
+      <ui-alert tone="error">{{ formError() }}</ui-alert>
+    }
+    <ui-form-field label="Nombre" required>
+      <ui-input
+        formControlName="name"
+        placeholder="Ej: Primero, Segundo, Transición"
+        [maxlength]="100"
+      />
+    </ui-form-field>
+    <ui-form-field label="Nivel" required>
+      <ui-select formControlName="level" [options]="levelOptions" [placeholder]="null" />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" variant="ghost" (click)="gradeModal.set(false)">
+      Cancelar
+    </button>
+    <button ui-button type="submit" form="grade-form" variant="primary" [loading]="saving()">
+      Guardar
+    </button>
+  </ng-container>
+</ui-modal>
+
+<!-- Modal salón -->
+<ui-modal [(open)]="classroomModal" [title]="editingClassroom() ? 'Editar salón' : 'Nuevo salón'">
+  <form id="classroom-form" class="form" [formGroup]="classroomForm" (ngSubmit)="saveClassroom()">
+    @if (formError()) {
+      <ui-alert tone="error">{{ formError() }}</ui-alert>
+    }
+    <ui-form-field label="Nombre" required>
+      <ui-input formControlName="name" placeholder="Ej: 1A, 5B, Transición-01" [maxlength]="50" />
+    </ui-form-field>
+    <ui-form-field label="Grado" required>
+      <ui-select
+        formControlName="gradeId"
+        [options]="gradeOptions()"
+        placeholder="Seleccione el grado…"
+      />
+    </ui-form-field>
+    <div class="grid grid--2">
+      <ui-form-field label="Capacidad" hint="Entre 1 y 100 estudiantes" required>
+        <ui-input type="number" formControlName="capacity" [min]="1" [max]="100" mono />
+      </ui-form-field>
+      <ui-form-field label="Año lectivo" required>
+        <ui-input type="number" formControlName="academicYear" [min]="2000" [max]="2100" mono />
+      </ui-form-field>
+    </div>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" variant="ghost" (click)="classroomModal.set(false)">
+      Cancelar
+    </button>
+    <button ui-button type="submit" form="classroom-form" variant="primary" [loading]="saving()">
+      Guardar
+    </button>
+  </ng-container>
+</ui-modal>
+
+<!-- Modal director de grupo -->
+<ui-modal
+  [open]="directorModal()"
+  (openChange)="!$event && closeDirector()"
+  title="Director de grupo"
+  [description]="
+    directorFor() ? 'Salón: ' + directorFor()!.name + ' (' + directorFor()!.gradeName + ')' : ''
+  "
+  size="sm"
+>
+  <div class="form">
+    @if (formError()) {
+      <ui-alert tone="error">{{ formError() }}</ui-alert>
+    }
+    @if (teachers.error()) {
+      <ui-alert tone="error">No se pudo cargar la lista de docentes.</ui-alert>
+    }
+    <ui-form-field
+      label="Profesor director"
+      [hint]="teachers.isLoading() ? 'Cargando docentes…' : 'Docentes y directivos activos'"
+    >
+      <ui-select
+        [options]="teacherOptions()"
+        [placeholder]="null"
+        [ngModel]="directorId()"
+        (ngModelChange)="directorId.set($event)"
+      />
+    </ui-form-field>
+  </div>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" variant="ghost" (click)="closeDirector()">Cancelar</button>
+    <button ui-button type="button" variant="primary" [loading]="saving()" (click)="saveDirector()">
+      Guardar
+    </button>
+  </ng-container>
+</ui-modal>

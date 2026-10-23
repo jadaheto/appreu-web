@@ -1,0 +1,185 @@
+<a ui-button variant="ghost" size="sm" icon="arrow-left" routerLink=".." class="back"
+  >Volver a WhatsApp</a
+>
+<div class="page-header">
+  <div>
+    <h1>Plantillas de WhatsApp</h1>
+    <p class="page-header__subtitle">
+      Las plantillas deben estar aprobadas en Meta; el estado aquí se actualiza manualmente.
+    </p>
+  </div>
+  @if (canEdit()) {
+    <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nueva plantilla</button>
+  }
+</div>
+
+<div class="cluster mb" role="group" aria-label="Filtrar por estado">
+  <button ui-chip [active]="!statusFilter()" (click)="statusFilter.set(null)">Todas</button>
+  @for (s of statuses; track s) {
+    <button ui-chip [active]="statusFilter() === s" (click)="statusFilter.set(s)">
+      {{ statusLabels[s] }}
+    </button>
+  }
+</div>
+
+<section class="ui-card flush">
+  <ui-data-table
+    caption="Plantillas de WhatsApp"
+    [columns]="columns"
+    [rows]="val(templates) ?? []"
+    [loading]="templates.isLoading()"
+    [actions]="actions()"
+    emptyIcon="document-text"
+    emptyTitle="No hay plantillas"
+    [emptyMessage]="canEdit() ? 'Crea la primera plantilla con el botón «Nueva plantilla».' : ''"
+    (action)="onAction($event)"
+  >
+    <ng-template uiCell="name" let-row>
+      <div class="who">
+        <strong class="font-mono">{{ row.name }}</strong>
+        <span class="text-muted truncate">{{ row.body }}</span>
+      </div>
+    </ng-template>
+    <ng-template uiCell="category" let-row>{{ categoryLabel(row.category) }}</ng-template>
+    <ng-template uiCell="status" let-row>
+      <ui-badge [tone]="statusTone(row.status)">{{ statusLabel(row.status) }}</ui-badge>
+    </ng-template>
+  </ui-data-table>
+</section>
+
+<ui-modal
+  [(open)]="modalOpen"
+  size="xl"
+  [title]="readOnly() ? 'Plantilla' : editing() ? 'Editar plantilla' : 'Nueva plantilla'"
+  [description]="modalHint"
+>
+  <form id="template-form" [formGroup]="form" (ngSubmit)="save()" novalidate class="editor-grid">
+    <div class="stack">
+      @if (serverError(); as e) {
+        <p class="danger" role="alert">{{ e }}</p>
+      }
+      <div class="form-grid form-grid--2">
+        <ui-form-field label="Nombre" [errorMessages]="nameMessages" required>
+          <ui-input mono placeholder="cobro_mensual" formControlName="name" />
+        </ui-form-field>
+        <ui-form-field label="ID de la plantilla en Meta" hint="Opcional.">
+          <ui-input mono formControlName="metaTemplateId" />
+        </ui-form-field>
+        <ui-form-field label="Idioma" required>
+          <ui-select [options]="languageOptions" [placeholder]="null" formControlName="language" />
+        </ui-form-field>
+        <ui-form-field label="Categoría" required>
+          <ui-select [options]="categoryOptions" [placeholder]="null" formControlName="category" />
+        </ui-form-field>
+        <ui-form-field label="Estado" required>
+          <ui-select [options]="statusOptions" [placeholder]="null" formControlName="status" />
+        </ui-form-field>
+        <ui-form-field label="Encabezado">
+          <ui-select [options]="headerOptions" [placeholder]="null" formControlName="headerType" />
+        </ui-form-field>
+        @if (headerType() === 'text') {
+          <ui-form-field label="Texto del encabezado" class="span-all" required>
+            <ui-input formControlName="headerText" [maxlength]="60" />
+          </ui-form-field>
+        }
+        @if (headerType() === 'image') {
+          <ui-form-field
+            label="URL de la imagen"
+            class="span-all"
+            [errorMessages]="urlMessages"
+            required
+          >
+            <ui-input type="url" formControlName="headerImageUrl" placeholder="https://…" />
+          </ui-form-field>
+        }
+      </div>
+      <ui-form-field label="Cuerpo" required>
+        <ui-textarea formControlName="body" [rows]="5" [maxlength]="maxBody" />
+      </ui-form-field>
+      @if (variablesArray.length) {
+        <fieldset formArrayName="variables" class="plain">
+          <legend>Etiqueta de cada variable</legend>
+          <div class="form-grid form-grid--2">
+            @for (c of variablesArray.controls; track $index; let i = $index) {
+              <ui-form-field [label]="placeholderLabel(i)">
+                <ui-input [formControlName]="i" placeholder="Ej.: Nombre del acudiente" />
+              </ui-form-field>
+            }
+          </div>
+        </fieldset>
+      }
+      <ui-form-field label="Pie" hint="Opcional, máx. 60 caracteres.">
+        <ui-input formControlName="footerText" [maxlength]="60" />
+      </ui-form-field>
+      <fieldset formArrayName="buttons" class="plain">
+        <legend>Botones</legend>
+        @for (g of buttonsArray.controls; track $index; let i = $index) {
+          <div class="button-row" [formGroupName]="i">
+            <ui-select
+              [options]="buttonTypeOptions"
+              [placeholder]="null"
+              formControlName="type"
+              ariaLabel="Tipo de botón"
+            />
+            <ui-input
+              formControlName="text"
+              placeholder="Texto"
+              ariaLabel="Texto del botón"
+              [maxlength]="25"
+            />
+            @if (g.value.type === 'URL') {
+              <ui-input formControlName="url" placeholder="https://…" ariaLabel="URL del botón" />
+            }
+            @if (!readOnly()) {
+              <button
+                ui-button
+                type="button"
+                variant="ghost"
+                icon="trash"
+                iconOnly
+                aria-label="Quitar botón"
+                (click)="removeButton(i)"
+              ></button>
+            }
+          </div>
+        }
+        @if (!readOnly() && buttonsArray.length < 10) {
+          <button ui-button type="button" size="sm" icon="plus" (click)="addButton()">
+            Agregar botón
+          </button>
+        }
+      </fieldset>
+    </div>
+    <aside aria-label="Vista previa">
+      <p class="muted-note">Vista previa</p>
+      <app-whatsapp-preview
+        [body]="form.controls.body.value"
+        [variables]="previewVariables()"
+        [header]="headerType() === 'text' ? form.controls.headerText.value : null"
+        [imageUrl]="headerType() === 'image' ? form.controls.headerImageUrl.value : null"
+        [footer]="form.controls.footerText.value"
+        [buttons]="previewButtons()"
+      />
+      <p class="muted-note sub">
+        Los cambios de una plantilla aprobada requieren una nueva aprobación de Meta.
+      </p>
+    </aside>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="modalOpen.set(false)">
+      {{ readOnly() ? 'Cerrar' : 'Cancelar' }}
+    </button>
+    @if (!readOnly()) {
+      <button
+        ui-button
+        type="submit"
+        form="template-form"
+        variant="primary"
+        icon="check"
+        [loading]="saving()"
+      >
+        Guardar plantilla
+      </button>
+    }
+  </ng-container>
+</ui-modal>

@@ -1,0 +1,223 @@
+<div class="page-header">
+  <div>
+    <h1>WhatsApp y comunicaciones</h1>
+    <p class="page-header__subtitle">Mensajes con plantillas aprobadas de WhatsApp Cloud API.</p>
+  </div>
+  <div class="cluster">
+    @if (val(kpis); as k) {
+      @if (k.configured) {
+        <ui-badge tone="success" dot>API conectada</ui-badge>
+      } @else {
+        <ui-badge tone="warning" dot>API sin configurar</ui-badge>
+      }
+    }
+    @if (canConfirmPayments()) {
+      <a ui-button variant="secondary" icon="banknotes" routerLink="/admin/correos/cobros"
+        >Cobro mensual</a
+      >
+    }
+    <a ui-button variant="secondary" icon="document-text" routerLink="plantillas">Plantillas</a>
+  </div>
+</div>
+
+@if (val(kpis); as k) {
+  @if (!k.configured) {
+    <ui-alert tone="warning" title="WhatsApp no está configurado" class="mb">
+      Registra el token y el Phone Number ID en
+      @if (isAdmin()) {
+        <a routerLink="/admin/configuracion" [queryParams]="{ tab: 'integrations' }"
+          >Configuración → WhatsApp y correo general</a
+        >.
+      } @else {
+        Configuración (pide ayuda a un administrador).
+      }
+    </ui-alert>
+  }
+}
+
+<section class="kpis mb" aria-label="Indicadores de WhatsApp">
+  @for (s of statuses; track s) {
+    <ui-stat-card
+      variant="border"
+      [label]="statusLabels[s]"
+      [tone]="
+        s === 'failed'
+          ? 'danger'
+          : s === 'read'
+            ? 'success'
+            : s === 'delivered'
+              ? 'info'
+              : 'primary'
+      "
+      [loading]="kpis.isLoading()"
+      [value]="val(kpis)?.totals?.[s] ?? null"
+    />
+  }
+</section>
+
+<div class="grid grid--2 mb">
+  <form class="ui-card" [formGroup]="single" (ngSubmit)="sendSingle()" novalidate>
+    <h2 class="ui-card__title">Envío individual</h2>
+    <div class="stack">
+      <ui-form-field
+        label="Teléfono"
+        hint="57 + 10 dígitos, o 10 dígitos."
+        [errorMessages]="phoneMessages"
+        required
+      >
+        <ui-input type="tel" mono placeholder="573001234567" formControlName="phone" />
+      </ui-form-field>
+      <ui-form-field label="Plantilla" required>
+        <ui-select
+          [options]="templateOptions()"
+          [placeholder]="templates.isLoading() ? 'Cargando plantillas…' : 'Seleccione la plantilla'"
+          formControlName="templateName"
+        />
+      </ui-form-field>
+      @if (single.controls.variables.length) {
+        <div formArrayName="variables" class="form-grid form-grid--2">
+          @for (c of single.controls.variables.controls; track $index; let i = $index) {
+            <ui-form-field [label]="variableLabel(i)" required>
+              <ui-input [formControlName]="i" />
+            </ui-form-field>
+          }
+        </div>
+      }
+      @if (selectedTemplate(); as t) {
+        <app-whatsapp-preview
+          [body]="t.body"
+          [variables]="previewValues()"
+          [header]="t.headerType === 'text' ? t.headerText : null"
+          [imageUrl]="t.headerType === 'image' ? t.headerImageUrl : null"
+          [footer]="t.footerText"
+          [buttons]="t.buttons"
+        />
+      }
+    </div>
+    <div class="actions-row">
+      <button
+        ui-button
+        type="submit"
+        variant="primary"
+        icon="chat-bubble"
+        [loading]="sendingSingle()"
+      >
+        Enviar mensaje
+      </button>
+    </div>
+  </form>
+
+  <div class="stack">
+    @if (canNotifyEvents()) {
+      <form class="ui-card" [formGroup]="event" (ngSubmit)="sendEvent()" novalidate>
+        <h2 class="ui-card__title">Notificar evento</h2>
+        <div class="stack">
+          <div class="form-grid form-grid--2">
+            <ui-form-field label="Fecha del evento" required>
+              <ui-input type="date" formControlName="date" />
+            </ui-form-field>
+            <ui-form-field label="Nombre del evento" required>
+              <ui-input
+                formControlName="name"
+                [maxlength]="200"
+                placeholder="Ej.: Día de la familia"
+              />
+            </ui-form-field>
+          </div>
+          <ui-form-field label="Detalles" hint="Opcional.">
+            <ui-textarea formControlName="details" [rows]="3" [maxlength]="600" />
+          </ui-form-field>
+          @if (eventResult(); as r) {
+            <app-delivery-summary label="Notificación del evento" [summary]="r" />
+          }
+        </div>
+        <div class="actions-row">
+          <button
+            ui-button
+            type="submit"
+            variant="primary"
+            icon="megaphone"
+            [loading]="sendingEvent()"
+          >
+            Notificar a los acudientes
+          </button>
+        </div>
+      </form>
+    }
+
+    @if (canConfirmPayments()) {
+      <section class="ui-card flush">
+        <h2 class="ui-card__title pad">Confirmaciones de pago</h2>
+        <div class="pad-x">
+          <ui-search-box
+            placeholder="Buscar recibo o alumno…"
+            ariaLabel="Buscar pagos"
+            (search)="paymentSearch.set($event)"
+          />
+        </div>
+        <ui-data-table
+          caption="Últimos pagos aplicados"
+          [columns]="paymentColumns"
+          [rows]="val(payments)?.items ?? []"
+          [loading]="payments.isLoading()"
+          [actions]="paymentActions"
+          emptyIcon="banknotes"
+          emptyTitle="Sin pagos aplicados"
+          (action)="onPaymentAction($event)"
+        >
+          <ng-template uiCell="studentName" let-row>
+            <div class="who">
+              <strong>{{ row.studentName }}</strong>
+              <span class="font-mono text-muted"
+                >{{ row.studentCode }} · {{ row.paidAt | dateEs }}</span
+              >
+            </div>
+          </ng-template>
+          <ng-template uiCell="amount" let-row>
+            <span class="font-mono">{{ row.amount | cop }}</span>
+          </ng-template>
+        </ui-data-table>
+      </section>
+    }
+  </div>
+</div>
+
+<section class="ui-card flush">
+  <h2 class="ui-card__title pad">Historial de envíos</h2>
+  <div class="pad-x toolbar">
+    <div class="cluster" role="group" aria-label="Filtrar por estado">
+      <button ui-chip [active]="!query().status" (click)="filterStatus(null)">Todos</button>
+      @for (s of statuses; track s) {
+        <button ui-chip [active]="query().status === s" (click)="filterStatus(s)">
+          {{ statusLabels[s] }}
+        </button>
+      }
+    </div>
+    <ui-search-box
+      placeholder="Buscar por teléfono, plantilla o alumno…"
+      (search)="search($event)"
+    />
+  </div>
+  <ui-data-table
+    caption="Historial de envíos de WhatsApp"
+    [columns]="columns"
+    [rows]="val(logs)?.items ?? []"
+    [loading]="logs.isLoading()"
+    emptyIcon="chat-bubble"
+    emptyTitle="Sin envíos registrados"
+  >
+    <ng-template uiCell="templateName" let-row>{{ row.templateName || '—' }}</ng-template>
+    <ng-template uiCell="studentName" let-row>{{ row.studentName || '—' }}</ng-template>
+    <ng-template uiCell="status" let-row>
+      <ui-badge [status]="row.status" [attr.title]="row.response" />
+    </ng-template>
+    <ng-template uiCell="createdAt" let-row>{{ row.createdAt | dateEs: 'datetime' }}</ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="val(logs)?.page ?? 1"
+      [pageSize]="query().pageSize ?? 20"
+      [total]="val(logs)?.total ?? 0"
+      (pageChange)="changePage($event)"
+    />
+  </ui-data-table>
+</section>

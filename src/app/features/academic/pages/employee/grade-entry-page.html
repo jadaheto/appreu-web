@@ -1,0 +1,219 @@
+<div class="page-header">
+  <div>
+    <h1>Calificaciones</h1>
+    <p class="page-header__subtitle">
+      @if (openPeriod(); as p) {
+        Período abierto: <strong>{{ p.name }}</strong>
+      } @else if (periods.hasValue()) {
+        Sin período abierto: solo puedes consultar notas.
+      } @else {
+        Planilla de notas por asignación y período.
+      }
+    </p>
+  </div>
+</div>
+
+<section class="ui-card filters" aria-label="Selección de planilla">
+  <ui-form-field label="Materia y salón" required>
+    <ui-select
+      [options]="assignmentOptions()"
+      placeholder="Seleccione una asignación…"
+      [ngModel]="selectedKey()"
+      (ngModelChange)="selectAssignment($event)"
+    />
+  </ui-form-field>
+  <ui-form-field label="Período" hint="Por defecto, el período abierto">
+    <ui-select
+      [options]="periodOptions()"
+      placeholder="Período abierto"
+      [ngModel]="selectedPeriodId()"
+      (ngModelChange)="selectPeriod($event)"
+    />
+  </ui-form-field>
+  <div class="refresh">
+    <button
+      ui-button
+      type="button"
+      variant="secondary"
+      icon="arrows-up-down"
+      [disabled]="!selectedKey()"
+      (click)="sheet.reload()"
+    >
+      Actualizar lista
+    </button>
+  </div>
+</section>
+
+@if (assignments.isLoading()) {
+  <div class="center"><ui-spinner size="lg" label="Cargando asignaciones…" /></div>
+} @else if (assignments.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar tus asignaciones">
+    {{ assignments.error()?.message }}
+  </ui-alert>
+} @else if (!assignmentOptions().length) {
+  <section class="ui-card">
+    <ui-empty-state
+      icon="briefcase"
+      title="Sin grupos asignados"
+      message="No tienes materias asignadas en el año lectivo. Comunícate con coordinación académica."
+    />
+  </section>
+} @else if (!selectedKey()) {
+  <div class="cards">
+    @for (a of val(assignments); track a.assignmentId) {
+      <button
+        type="button"
+        class="card"
+        (click)="selectAssignment(a.classroom.id + ':' + a.subject.id)"
+      >
+        <span class="initials" aria-hidden="true">{{ a.classroom.name }}</span>
+        <span class="subject">{{ a.subject.name }}</span>
+        <span class="meta">{{ a.classroom.gradeName }} · {{ a.studentsCount }} alumnos</span>
+        <span class="cta">Calificar →</span>
+      </button>
+    }
+  </div>
+} @else if (sheet.error()) {
+  <ui-alert tone="error" title="No se pudo cargar la planilla">{{
+    sheet.error()?.message
+  }}</ui-alert>
+} @else if (sheet.isLoading() && !data()) {
+  <div class="center"><ui-spinner size="lg" label="Cargando planilla…" /></div>
+} @else if (data(); as s) {
+  <section class="ui-card">
+    <header class="sheet-head">
+      <div>
+        <h2 class="ui-card__title">{{ s.subject.name }} · {{ s.classroom.name }}</h2>
+        <p class="text-muted">
+          {{ s.period.name }} ·
+          <ui-badge [tone]="statusTone(s.period.status)" dot>{{
+            statusLabel(s.period.status)
+          }}</ui-badge>
+          · Pesos: cognitivo {{ s.weights.cognitive }}%, procedimental {{ s.weights.procedural }}%,
+          actitudinal {{ s.weights.attitudinal }}%
+        </p>
+      </div>
+      @if (dirtyCount()) {
+        <ui-badge tone="warning">{{ dirtyCount() }} sin guardar</ui-badge>
+      }
+    </header>
+
+    @if (!s.editable) {
+      <ui-alert tone="warning" class="mb">
+        Solo se pueden guardar notas en el período abierto actual. Esta planilla es de solo lectura.
+      </ui-alert>
+    }
+    @if (saveError()) {
+      <ui-alert tone="error" class="mb" dismissible (dismissed)="saveError.set(null)">{{
+        saveError()
+      }}</ui-alert>
+    }
+
+    @if (!s.rows.length) {
+      <ui-empty-state
+        icon="users"
+        title="Sin estudiantes"
+        message="No hay estudiantes activos en este salón."
+      />
+    } @else {
+      <div class="scroll">
+        <table class="sheet">
+          <caption class="sr-only">
+            Planilla de notas de
+            {{
+              s.subject.name
+            }}
+            en
+            {{
+              s.classroom.name
+            }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Estudiante</th>
+              <th scope="col" class="num">Cogn. ({{ s.weights.cognitive }}%)</th>
+              <th scope="col" class="num">Proc. ({{ s.weights.procedural }}%)</th>
+              <th scope="col" class="num">Acti. ({{ s.weights.attitudinal }}%)</th>
+              <th scope="col" class="num">Definitiva</th>
+              <th scope="col">Desempeño</th>
+              <th scope="col">Observaciones</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of s.rows; track row.studentId; let i = $index) {
+              @if (form.at(i); as group) {
+                <tr [formGroup]="group" [class.dirty]="group.dirty">
+                  <th scope="row">
+                    <span class="name">{{ row.fullName }}</span>
+                    <span class="code font-mono">{{ row.code }}</span>
+                  </th>
+                  @for (c of components; track c.key) {
+                    <td class="num">
+                      <input
+                        class="cell"
+                        type="number"
+                        inputmode="decimal"
+                        min="0"
+                        max="5"
+                        step="0.1"
+                        [formControlName]="c.key"
+                        [class.invalid]="hasError(i, c.key)"
+                        [attr.aria-invalid]="hasError(i, c.key)"
+                        [attr.aria-label]="c.label + ' de ' + row.fullName"
+                      />
+                    </td>
+                  }
+                  <td class="num">
+                    <app-grade-value
+                      [value]="row.finalScore"
+                      [passing]="row.passing"
+                      [strong]="true"
+                    />
+                  </td>
+                  <td><app-performance-badge [performance]="row.performance" /></td>
+                  <td>
+                    <input
+                      class="cell obs"
+                      type="text"
+                      formControlName="observations"
+                      placeholder="Breve observación…"
+                      [maxlength]="maxObservations"
+                      [attr.aria-label]="'Observaciones de ' + row.fullName"
+                    />
+                  </td>
+                </tr>
+              }
+            }
+          </tbody>
+        </table>
+      </div>
+      <p class="text-muted note">
+        Notas de 0.0 a 5.0 con un decimal. La definitiva y el desempeño se recalculan al guardar.
+      </p>
+      @if (s.editable) {
+        <footer class="actions">
+          <button
+            ui-button
+            type="button"
+            variant="ghost"
+            [disabled]="!dirtyCount() || saving()"
+            (click)="discard()"
+          >
+            Descartar cambios
+          </button>
+          <button
+            ui-button
+            type="button"
+            variant="primary"
+            icon="check"
+            [loading]="saving()"
+            [disabled]="invalid()"
+            (click)="save()"
+          >
+            Guardar todas las calificaciones
+          </button>
+        </footer>
+      }
+    }
+  </section>
+}

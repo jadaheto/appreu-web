@@ -1,0 +1,38 @@
+.mb {
+  display: block;
+  margin-bottom: var(--space-4);
+}
+.wizard-actions {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+  border-top: 1px solid var(--color-border-soft);
+  background: var(--color-surface);
+}
+.lookup {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: var(--space-3);
+  margin-bottom: var(--space-4);
+}
+.lookup ui-form-field {
+  flex: 1 1 16rem;
+}
+.found {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-md);
+  background: var(--color-surface-2);
+}
+.found ul {
+  margin: 0;
+  padding-left: 1.25rem;
+  font-size: var(--text-sm);
+}

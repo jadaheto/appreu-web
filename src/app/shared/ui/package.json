@@ -1,0 +1,5 @@
+{
+  "name": "@apreu/ui-internal",
+  "private": true,
+  "sideEffects": false
+}

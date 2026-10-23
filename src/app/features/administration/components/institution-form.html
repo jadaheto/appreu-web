@@ -1,0 +1,157 @@
+<h2 class="ui-card__title">Datos de la institución (RUT)</h2>
+
+@if (loading()) {
+  <ui-spinner size="lg" />
+} @else if (loadError(); as e) {
+  <ui-alert tone="error" title="No se pudieron cargar los datos">
+    {{ e }}
+    <button ui-button size="sm" variant="ghost" (click)="load()">Reintentar</button>
+  </ui-alert>
+} @else {
+  @if (!profile()) {
+    <ui-alert tone="info" class="mb" title="Aún no hay datos registrados">
+      Completa la información de la institución; se usará en recibos, certificados y facturas.
+    </ui-alert>
+  }
+
+  <section class="logo mb" aria-label="Logo de la institución">
+    <div class="logo__box">
+      @if (logoSrc(); as src) {
+        <img [src]="src" alt="Logo actual de la institución" />
+      } @else {
+        <span>Sin logo</span>
+      }
+    </div>
+    @if (canEdit()) {
+      <div class="stack">
+        <button
+          ui-button
+          type="button"
+          icon="download"
+          [loading]="uploading()"
+          (click)="logoInput.click()"
+        >
+          {{ logoSrc() ? 'Cambiar logo' : 'Subir logo' }}
+        </button>
+        <input
+          #logoInput
+          class="sr-only"
+          type="file"
+          tabindex="-1"
+          accept=".png,.jpg,.jpeg,.webp"
+          aria-label="Archivo del logo"
+          (change)="uploadLogo(logoInput)"
+        />
+        <span class="muted-note">PNG, JPG o WebP · máx. 2 MB · entre 16 y 4096 px.</span>
+        @if (logoError(); as e) {
+          <span class="muted-note danger" role="alert">{{ e }}</span>
+        }
+      </div>
+    }
+  </section>
+
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="form-grid form-grid--3">
+      <ui-form-field label="Razón social" class="span-2" required>
+        <ui-input formControlName="name" [maxlength]="200" />
+      </ui-form-field>
+      <ui-form-field label="Tipo de documento" required>
+        <ui-select
+          [options]="documentOptions"
+          [placeholder]="null"
+          formControlName="documentType"
+        />
+      </ui-form-field>
+      <div class="dv span-2">
+        <ui-form-field label="NIT (sin DV)" [errorMessages]="nitMessages" required>
+          <ui-input mono formControlName="nit" inputmode="numeric" placeholder="900123456" />
+        </ui-form-field>
+        <div class="stack">
+          <span class="muted-note" id="dv-label">DV</span>
+          <output class="dv__value font-mono" aria-labelledby="dv-label" aria-live="polite">{{
+            dvPreview() ?? '—'
+          }}</output>
+        </div>
+      </div>
+      <ui-form-field label="Tipo de persona" required>
+        <ui-select [options]="personOptions" [placeholder]="null" formControlName="personType" />
+      </ui-form-field>
+      @if (profile(); as p) {
+        <p class="muted-note span-all">
+          NIT registrado: <strong class="font-mono">{{ p.nitFormatted }}</strong> (el DV lo calcula
+          el sistema).
+        </p>
+      }
+    </div>
+
+    <h3>Ubicación</h3>
+    <div class="form-grid form-grid--3">
+      <ui-form-field label="Departamento">
+        <ui-input formControlName="department" />
+      </ui-form-field>
+      <ui-form-field label="Código DANE del departamento" [errorMessages]="daneMessages">
+        <ui-input mono formControlName="departmentDaneCode" [maxlength]="2" placeholder="11" />
+      </ui-form-field>
+      <ui-form-field label="Código postal" [errorMessages]="daneMessages">
+        <ui-input mono formControlName="postalCode" [maxlength]="6" />
+      </ui-form-field>
+      <ui-form-field label="Ciudad / municipio">
+        <ui-input formControlName="city" />
+      </ui-form-field>
+      <ui-form-field label="Código DANE del municipio" [errorMessages]="daneMessages">
+        <ui-input mono formControlName="cityDaneCode" [maxlength]="5" placeholder="001" />
+      </ui-form-field>
+      <ui-form-field label="Teléfono">
+        <ui-input type="tel" formControlName="phone" />
+      </ui-form-field>
+      <ui-form-field label="Dirección" class="span-2">
+        <ui-input formControlName="address" />
+      </ui-form-field>
+      <ui-form-field label="Correo">
+        <ui-input type="email" formControlName="email" />
+      </ui-form-field>
+      <ui-form-field
+        label="Responsabilidades tributarias"
+        class="span-all"
+        hint="Separadas por coma (casilla 53 del RUT), p. ej. O-13, O-15."
+        [errorMessages]="taxMessages"
+      >
+        <ui-input mono formControlName="taxResponsibilities" />
+      </ui-form-field>
+    </div>
+
+    <h3>Datos académicos y representación</h3>
+    <div class="form-grid form-grid--3">
+      <ui-form-field label="Código DANE de la institución">
+        <ui-input mono formControlName="daneCode" />
+      </ui-form-field>
+      <ui-form-field label="Resolución de aprobación">
+        <ui-input formControlName="resolutionNumber" />
+      </ui-form-field>
+      <ui-form-field label="Rector(a) / representante legal">
+        <ui-input formControlName="rectorName" />
+      </ui-form-field>
+    </div>
+
+    <h3>Contacto de facturación</h3>
+    <div class="form-grid form-grid--3">
+      <ui-form-field label="Nombre">
+        <ui-input formControlName="billingContactName" />
+      </ui-form-field>
+      <ui-form-field label="Teléfono">
+        <ui-input type="tel" formControlName="billingContactPhone" />
+      </ui-form-field>
+      <ui-form-field label="Correo">
+        <ui-input type="email" formControlName="billingContactEmail" />
+      </ui-form-field>
+    </div>
+
+    @if (canEdit()) {
+      <div class="actions-row">
+        <button ui-button type="submit" variant="primary" icon="check" [loading]="saving()">
+          Guardar institución
+        </button>
+      </div>
+    }
+  </form>
+}

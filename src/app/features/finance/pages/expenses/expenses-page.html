@@ -1,0 +1,156 @@
+<div class="page-header">
+  <div>
+    <h1>Gastos</h1>
+    <p class="page-header__subtitle">Egresos de la institución y sus categorías.</p>
+  </div>
+  <button ui-button variant="primary" icon="plus" (click)="openNew()">Registrar gasto</button>
+</div>
+
+<div class="layout">
+  <div>
+    <ui-filter-bar
+      class="mb"
+      [showClear]="hasFilters()"
+      (apply)="applyFilters()"
+      (clear)="clearFilters()"
+    >
+      <ui-search-box
+        placeholder="Descripción, proveedor o soporte…"
+        ariaLabel="Buscar gastos"
+        [(value)]="draft.search"
+        (search)="applyFilters()"
+      />
+      <ui-date-range
+        [ngModel]="draft.range()"
+        (ngModelChange)="draft.range.set($event)"
+        name="range"
+      />
+      <ui-select
+        ariaLabel="Categoría"
+        placeholder="Todas las categorías"
+        [options]="categoryOptions()"
+        [ngModel]="draft.categoryId()"
+        (ngModelChange)="draft.categoryId.set($event)"
+        name="category"
+      />
+    </ui-filter-bar>
+
+    <ui-data-table
+      [columns]="columns"
+      [rows]="rows()"
+      [loading]="list.isLoading()"
+      caption="Gastos"
+      emptyTitle="No hay gastos"
+      emptyMessage="Registra el primer gasto con el botón “Registrar gasto”."
+    >
+      <div uiTableFooter class="cluster" style="justify-content: space-between; width: 100%">
+        <span class="text-muted"
+          >Total de la página: <strong class="font-mono">{{ cop(pageTotal()) }}</strong></span
+        >
+        <ui-pagination
+          [page]="filters().page ?? 1"
+          [pageSize]="filters().pageSize ?? 20"
+          [total]="val(list)?.total ?? 0"
+          (pageChange)="onPage($event)"
+        />
+      </div>
+    </ui-data-table>
+    @if (list.error()) {
+      <ui-alert tone="error">No se pudieron cargar los gastos.</ui-alert>
+    }
+  </div>
+
+  <aside class="ui-card" aria-labelledby="cat-title">
+    <h2 class="ui-card__title" id="cat-title">Categorías</h2>
+    @if (val(categories)?.length) {
+      <ul class="cats">
+        @for (c of val(categories); track c.id) {
+          <li>
+            <span>{{ c.name }}</span>
+            <button
+              ui-button
+              size="sm"
+              variant="ghost"
+              iconOnly
+              icon="pencil"
+              [attr.aria-label]="'Renombrar ' + c.name"
+              (click)="editCategory(c)"
+            ></button>
+          </li>
+        }
+      </ul>
+    } @else if (!categories.isLoading()) {
+      <ui-empty-state icon="tag" title="Sin categorías" />
+    }
+    <form class="cat-form" [formGroup]="categoryForm" (ngSubmit)="saveCategory()" novalidate>
+      <ui-form-field [label]="editing() ? 'Renombrar categoría' : 'Nueva categoría'" required>
+        <ui-input formControlName="name" [maxlength]="150" />
+      </ui-form-field>
+      <button
+        ui-button
+        type="submit"
+        variant="primary"
+        [icon]="editing() ? 'check' : 'plus'"
+        [loading]="savingCategory()"
+        [attr.aria-label]="editing() ? 'Guardar' : 'Agregar'"
+      >
+        {{ editing() ? 'Guardar' : 'Agregar' }}
+      </button>
+      @if (editing()) {
+        <button
+          ui-button
+          type="button"
+          variant="ghost"
+          iconOnly
+          icon="x-mark"
+          aria-label="Cancelar edición"
+          (click)="cancelEdit()"
+        ></button>
+      }
+    </form>
+  </aside>
+</div>
+
+<ui-modal [(open)]="modalOpen" title="Registrar gasto" size="lg">
+  <form id="expense-form" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    <div class="grid grid--2">
+      <ui-form-field label="Descripción" required class="span-2">
+        <ui-input formControlName="description" [maxlength]="255" />
+      </ui-form-field>
+      <ui-form-field label="Monto" required [errorMessages]="amountMessages">
+        <ui-input type="number" formControlName="amount" prefix="$" min="0" step="100" mono />
+      </ui-form-field>
+      <ui-form-field label="Fecha" required>
+        <ui-input type="date" formControlName="date" [max]="today" />
+      </ui-form-field>
+      <ui-form-field label="Categoría">
+        <ui-select
+          formControlName="categoryId"
+          placeholder="Sin categoría"
+          [options]="categoryOptions()"
+        />
+      </ui-form-field>
+      <ui-form-field label="Medio de pago">
+        <ui-select formControlName="paymentMethod" [options]="methodOptions" />
+      </ui-form-field>
+      <ui-form-field label="Proveedor">
+        <ui-input formControlName="vendor" [maxlength]="200" />
+      </ui-form-field>
+      <ui-form-field label="N.º de factura o soporte">
+        <ui-input formControlName="receiptNo" [maxlength]="100" mono />
+      </ui-form-field>
+    </div>
+    <ui-form-field label="Notas">
+      <ui-textarea formControlName="notes" [rows]="3" [maxlength]="2000" />
+    </ui-form-field>
+    @if (formError()) {
+      <ui-alert tone="error">{{ formError() }}</ui-alert>
+    }
+  </form>
+  <div uiModalFooter class="modal-actions">
+    <button ui-button type="button" variant="ghost" (click)="modalOpen.set(false)">Cancelar</button>
+    <button ui-button type="submit" form="expense-form" variant="primary" [loading]="saving()">
+      Guardar gasto
+    </button>
+  </div>
+</ui-modal>

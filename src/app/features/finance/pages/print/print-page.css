@@ -1,0 +1,13 @@
+/*
+ * Compartido por ReceiptPrintPage y ChargePrintPage. Va en archivo y no como constante
+ * en `styles`: dos componentes con el mismo estilo inline hacen que `ng build` no termine
+ * (Angular deja abierto un contexto de esbuild duplicado).
+ */
+.back {
+  margin-bottom: var(--space-4);
+}
+.center {
+  display: flex;
+  justify-content: center;
+  padding: 3rem 0;
+}

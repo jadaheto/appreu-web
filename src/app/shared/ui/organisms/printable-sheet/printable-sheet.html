@@ -1,0 +1,40 @@
+@if (showToolbar()) {
+  <div class="toolbar no-print">
+    <ng-content select="[uiSheetActions]" />
+    <button ui-button type="button" variant="primary" icon="printer" (click)="print()">
+      {{ printLabel() }}
+    </button>
+  </div>
+}
+<article class="sheet ui-light-surface">
+  <header class="head">
+    @if (logoUrl()) {
+      <img [src]="logoUrl()" alt="" [style.height.px]="logoSize()" />
+    }
+    <div class="inst">
+      <p class="inst-name">{{ institutionName() }}</p>
+      @if (nit()) {
+        <p>NIT {{ nit() }}</p>
+      }
+      @if (location()) {
+        <p>{{ location() }}</p>
+      }
+      @if (phone()) {
+        <p>Tel. {{ phone() }}</p>
+      }
+    </div>
+    @if (documentTitle() || documentNumber()) {
+      <div class="doc">
+        <p class="doc-title">{{ documentTitle() }}</p>
+        @if (documentNumber()) {
+          <p class="font-mono">{{ documentNumber() }}</p>
+        }
+        @if (issuedAt()) {
+          <p class="muted">{{ issuedAt() }}</p>
+        }
+      </div>
+    }
+  </header>
+  <div class="body"><ng-content /></div>
+  <footer class="foot"><ng-content select="[uiSheetFooter]" /></footer>
+</article>

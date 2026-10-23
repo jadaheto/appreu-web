@@ -1,0 +1,57 @@
+<section class="hero mb">
+  <div>
+    <h1>Marketing inteligente con IA</h1>
+    <p>
+      Genera estrategias, copys y campañas a partir de los datos de tu institución. Cada generación
+      queda guardada en tu historial.
+    </p>
+  </div>
+  <a ui-button variant="secondary" icon="clock" routerLink="historial">Ver historial</a>
+</section>
+
+@if (types.isLoading()) {
+  <ui-spinner size="lg" />
+} @else if (types.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el catálogo de generadores">
+    Intenta recargar la página.
+  </ui-alert>
+} @else {
+  <section class="grid grid--3 mb" aria-label="Generadores">
+    @for (t of val(types) ?? []; track t.type) {
+      <a class="type-card ui-card" [routerLink]="['generar', t.type]" [style.--accent]="color(t)">
+        <span class="emoji" aria-hidden="true">{{ t.icon }}</span>
+        <strong>{{ t.title }}</strong>
+        <span class="text-muted">{{ t.description }}</span>
+      </a>
+    }
+  </section>
+}
+
+<section class="ui-card">
+  <h2 class="ui-card__title">Generaciones recientes</h2>
+  @if (recent.isLoading()) {
+    <ui-spinner />
+  } @else if (val(recent)?.items?.length) {
+    <ul class="recent">
+      @for (g of val(recent)!.items; track g.id) {
+        <li>
+          <span class="emoji" aria-hidden="true">{{ iconOf(g.type) }}</span>
+          <div class="grow">
+            <strong>{{ titleOf(g.type) }}</strong>
+            <p class="text-muted clamp">{{ g.contextInput }}</p>
+          </div>
+          <span class="muted-date">{{ g.createdAt | dateEs: 'datetime' }}</span>
+        </li>
+      }
+    </ul>
+    <a ui-button variant="ghost" size="sm" iconRight="chevron-right" routerLink="historial"
+      >Ver historial completo</a
+    >
+  } @else {
+    <ui-empty-state
+      icon="megaphone"
+      title="Aún no has generado contenido"
+      message="Elige un generador para empezar."
+    />
+  }
+</section>

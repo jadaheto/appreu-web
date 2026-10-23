@@ -1,0 +1,89 @@
+<div class="page-header">
+  <div>
+    <h1>Monitor de IA</h1>
+    <p class="page-header__subtitle">
+      Supervisa todas las interacciones con Apreu IA en el colegio.
+    </p>
+  </div>
+</div>
+
+<ui-filter-bar class="mb" [showClear]="hasFilters()" (apply)="apply()" (clear)="clear()">
+  <ui-search-box
+    placeholder="Buscar por pregunta o usuario…"
+    [(value)]="search"
+    (search)="apply()"
+  />
+  <ui-form-field label="Rol">
+    <ui-select [options]="roleOptions" placeholder="Todos los roles" [(ngModel)]="role" />
+  </ui-form-field>
+  <ui-form-field
+    label="Rango de fechas"
+    [error]="rangeError() ? 'La fecha inicial no puede ser posterior a la final.' : null"
+  >
+    <ui-date-range [(ngModel)]="range" />
+  </ui-form-field>
+</ui-filter-bar>
+
+<section class="ui-card flush">
+  <ui-data-table
+    caption="Conversaciones con el asistente IA"
+    [columns]="columns"
+    [rows]="val(logs)?.items ?? []"
+    [loading]="logs.isLoading()"
+    [actions]="actions"
+    emptyIcon="cpu-chip"
+    emptyTitle="Sin conversaciones"
+    (action)="onAction($event)"
+  >
+    <ng-template uiCell="createdAt" let-row>{{ row.createdAt | dateEs: 'datetime' }}</ng-template>
+    <ng-template uiCell="userName" let-row>
+      <div class="who">
+        <strong>{{ row.userName ?? 'Usuario eliminado' }}</strong>
+        @if (row.userEmail) {
+          <span class="font-mono text-muted">{{ row.userEmail }}</span>
+        }
+      </div>
+    </ng-template>
+    <ng-template uiCell="role" let-row>
+      <ui-badge tone="primary">{{ roleLabel(row.role) }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="userMessage" let-row>
+      <span [attr.title]="row.userMessage">{{ excerpt(row.userMessage, 80) }}</span>
+    </ng-template>
+    <ng-template uiCell="aiResponse" let-row>
+      <span class="text-muted">{{ excerpt(row.aiResponse, 100) }}</span>
+    </ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="val(logs)?.page ?? 1"
+      [pageSize]="query().pageSize ?? 20"
+      [total]="val(logs)?.total ?? 0"
+      (pageChange)="changePage($event)"
+    />
+  </ui-data-table>
+</section>
+
+<ui-modal [(open)]="detailOpen" title="Conversación" size="lg">
+  @if (selected(); as log) {
+    <dl class="detail">
+      <dt>Usuario</dt>
+      <dd>
+        {{ log.userName ?? 'Usuario eliminado' }}
+        @if (log.userEmail) {
+          · {{ log.userEmail }}
+        }
+      </dd>
+      <dt>Rol</dt>
+      <dd>{{ roleLabel(log.role) }}</dd>
+      <dt>Fecha</dt>
+      <dd>{{ log.createdAt | dateEs: 'datetime' }}</dd>
+      <dt>Pregunta</dt>
+      <dd>{{ log.userMessage }}</dd>
+      <dt>Respuesta</dt>
+      <dd><div [innerHTML]="log.aiResponse | markdownLite"></div></dd>
+    </dl>
+  }
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="detailOpen.set(false)">Cerrar</button>
+  </ng-container>
+</ui-modal>

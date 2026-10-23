@@ -1,0 +1,125 @@
+<div class="page-header">
+  <div>
+    <h1>Emitir factura electrónica</h1>
+    <p class="page-header__subtitle">
+      Factura de venta manual. Los servicios educativos están excluidos de IVA.
+    </p>
+  </div>
+  <a ui-button variant="ghost" icon="arrow-left" routerLink="..">Volver</a>
+</div>
+
+<form [formGroup]="form" (ngSubmit)="submit()" novalidate aria-label="Nueva factura electrónica">
+  @if (serverError()) {
+    <ui-alert
+      class="mb"
+      tone="error"
+      title="La factura no se pudo emitir"
+      dismissible
+      (dismissed)="serverError.set(null)"
+      >{{ serverError() }}</ui-alert
+    >
+  }
+
+  <section class="ui-card mb" formGroupName="customer" aria-labelledby="inv-customer">
+    <h2 class="ui-card__title" id="inv-customer">Adquiriente</h2>
+    <div class="grid grid--3">
+      <ui-form-field label="Tipo de documento" required>
+        <ui-select formControlName="idType" [options]="idTypeOptions()" />
+      </ui-form-field>
+      <ui-form-field label="Número de documento" required [errorMessages]="messages">
+        <ui-input formControlName="idNumber" mono autocomplete="off" />
+      </ui-form-field>
+      <ui-form-field label="Nombre o razón social" required>
+        <ui-input formControlName="name" autocomplete="name" />
+      </ui-form-field>
+      <ui-form-field label="Nombres" hint="Persona natural">
+        <ui-input formControlName="firstName" />
+      </ui-form-field>
+      <ui-form-field label="Apellidos" hint="Persona natural">
+        <ui-input formControlName="familyName" />
+      </ui-form-field>
+      <ui-form-field label="Correo electrónico" hint="Recibirá el documento">
+        <ui-input formControlName="email" type="email" autocomplete="email" />
+      </ui-form-field>
+      <ui-form-field label="Teléfono">
+        <ui-input formControlName="phone" type="tel" autocomplete="tel" />
+      </ui-form-field>
+      <ui-form-field label="Dirección">
+        <ui-input formControlName="address" autocomplete="street-address" />
+      </ui-form-field>
+      <app-dane-location-fields
+        [departmentControl]="form.controls.customer.controls.departmentCode"
+        [cityControl]="form.controls.customer.controls.cityCode"
+      />
+      <ui-form-field label="Régimen de IVA">
+        <ui-select formControlName="vatRegime" [options]="vatOptions()" placeholder="Por defecto" />
+      </ui-form-field>
+      <ui-form-field label="Responsabilidad fiscal">
+        <ui-select
+          formControlName="taxLevelCode"
+          [options]="taxLevelOptions()"
+          placeholder="Por defecto (R-99-PN)"
+        />
+      </ui-form-field>
+    </div>
+    <p class="text-muted">Si no elige municipio se usará el del colegio.</p>
+  </section>
+
+  <section class="ui-card mb" aria-labelledby="inv-lines">
+    <h2 class="ui-card__title" id="inv-lines">Conceptos facturados</h2>
+    <app-line-items-editor [lines]="form.controls.lines" />
+    <div class="totals" aria-live="polite">
+      <span
+        >Subtotal estimado <strong>{{ estimate().subtotal | cop }}</strong></span
+      >
+      <span
+        >IVA estimado <strong>{{ estimate().tax | cop }}</strong></span
+      >
+      <span
+        >Total estimado <strong>{{ estimate().total | cop }}</strong></span
+      >
+    </div>
+    <p class="text-muted">
+      Valores orientativos: el servidor calcula y redondea los totales definitivos.
+    </p>
+  </section>
+
+  <section class="ui-card mb" formGroupName="paymentMeans" aria-labelledby="inv-payment">
+    <h2 class="ui-card__title" id="inv-payment">Pago</h2>
+    <div class="grid grid--3">
+      <ui-form-field label="Forma de pago" required>
+        <ui-select formControlName="form" [options]="formOptions()" />
+      </ui-form-field>
+      <ui-form-field label="Medio de pago" required>
+        <ui-select formControlName="code" [options]="meansOptions()" />
+      </ui-form-field>
+      @if (paymentForm() === '2') {
+        <ui-form-field
+          label="Fecha de vencimiento"
+          required
+          [error]="
+            form.controls.paymentMeans.hasError('dueDateRequired') &&
+            form.controls.paymentMeans.controls.dueDate.touched
+              ? 'A crédito la fecha de vencimiento es obligatoria.'
+              : null
+          "
+        >
+          <ui-input formControlName="dueDate" type="date" />
+        </ui-form-field>
+      }
+    </div>
+  </section>
+
+  <section class="ui-card mb">
+    <ui-form-field label="Observaciones">
+      <ui-textarea formControlName="notes" [rows]="3" [maxlength]="2000" />
+    </ui-form-field>
+  </section>
+
+  <div class="cluster form-actions">
+    <a ui-button variant="ghost" routerLink="..">Cancelar</a>
+    <button ui-button type="submit" variant="primary" icon="document-check" [loading]="saving()">
+      Emitir y enviar a la DIAN
+    </button>
+  </div>
+</form>

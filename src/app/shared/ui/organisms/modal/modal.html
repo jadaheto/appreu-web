@@ -1,0 +1,35 @@
+@if (open()) {
+  <div class="backdrop" (click)="onBackdrop($event)">
+    <div
+      #panel
+      class="panel"
+      [class]="'panel panel--' + size()"
+      role="dialog"
+      aria-modal="true"
+      tabindex="-1"
+      [attr.aria-labelledby]="title() ? titleId : null"
+      [attr.aria-describedby]="description() ? descId : null"
+      (keydown)="onKeydown($event)"
+    >
+      @if (title() || showClose()) {
+        <header>
+          <div>
+            @if (title()) {
+              <h2 [id]="titleId">{{ title() }}</h2>
+            }
+            @if (description()) {
+              <p class="desc" [id]="descId">{{ description() }}</p>
+            }
+          </div>
+          @if (showClose()) {
+            <button type="button" class="close" aria-label="Cerrar" (click)="close()">
+              <ui-icon name="x-mark" [size]="20" />
+            </button>
+          }
+        </header>
+      }
+      <div class="body"><ng-content /></div>
+      <footer><ng-content select="[uiModalFooter]" /></footer>
+    </div>
+  </div>
+}

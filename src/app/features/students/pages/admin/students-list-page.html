@@ -1,0 +1,121 @@
+<div class="page-header">
+  <div>
+    <h1>Directorio de alumnos</h1>
+    <p class="page-header__subtitle" aria-live="polite">
+      @if (page(); as p) {
+        {{ p.total }} registros encontrados
+      } @else {
+        Estudiantes matriculados en el colegio
+      }
+    </p>
+  </div>
+  <div class="cluster">
+    <a ui-button variant="ghost" icon="shield-check" routerLink="verificar"
+      >Verificar certificado</a
+    >
+    <a ui-button variant="primary" icon="plus" routerLink="nuevo">Nueva matrícula</a>
+  </div>
+</div>
+
+<section class="ui-card stack">
+  <ui-filter-bar [showClear]="hasFilters()" (apply)="apply()" (clear)="clear()">
+    <ui-search-box
+      [(value)]="search"
+      placeholder="Nombre, código o documento…"
+      (search)="onSearch($event)"
+    />
+    <div class="cluster" [formGroup]="filterForm">
+      <ui-select
+        class="filter"
+        formControlName="status"
+        [options]="statusOptions"
+        placeholder="Todos los estados"
+        ariaLabel="Estado"
+      />
+      <ui-select
+        class="filter"
+        formControlName="gradeId"
+        [options]="gradeOptions()"
+        placeholder="Todos los grados"
+        ariaLabel="Grado"
+      />
+      <ui-select
+        class="filter"
+        formControlName="classroomId"
+        [options]="classroomOptions()"
+        placeholder="Todos los salones"
+        ariaLabel="Salón"
+      />
+      <ui-select
+        class="filter"
+        formControlName="year"
+        [options]="yearOptions"
+        placeholder="Todos los años"
+        ariaLabel="Año lectivo"
+      />
+    </div>
+  </ui-filter-bar>
+
+  @if (result.error(); as err) {
+    <ui-alert tone="error" title="No se pudo cargar el directorio">{{ err.message }}</ui-alert>
+  }
+  <ui-data-table
+    caption="Directorio de alumnos"
+    [columns]="columns"
+    [rows]="page()?.items ?? []"
+    [loading]="result.isLoading()"
+    [actions]="actions"
+    rowClickable
+    emptyTitle="No se encontraron alumnos"
+    emptyMessage="Modifica los filtros o registra el primer alumno."
+    (action)="onAction($event)"
+    (rowClick)="open($event)"
+  >
+    <ng-template uiCell="fullName" let-row>
+      <div class="student">
+        <ui-avatar [name]="row.fullName" size="sm" />
+        <div>
+          <strong>{{ row.fullName }}</strong>
+          @if (row.email) {
+            <span class="sub">{{ row.email }}</span>
+          }
+        </div>
+      </div>
+    </ng-template>
+    <ng-template uiCell="placement" let-row>
+      @if (row.placement; as p) {
+        <strong>{{ p.gradeName }}</strong>
+        <span class="sub">{{ p.gradeLevel }} • {{ p.classroomName }}</span>
+      } @else {
+        <span class="sub">Sin asignar</span>
+      }
+    </ng-template>
+    <ng-template uiCell="guardian" let-row>
+      @if (row.guardian; as g) {
+        {{ g.fullName }}
+        @if (g.mobile) {
+          <span class="sub font-mono">{{ g.mobile }}</span>
+        }
+      } @else {
+        —
+      }
+    </ng-template>
+    <ng-template uiCell="scholarshipPct" let-row>
+      @if (row.scholarshipPct > 0) {
+        <ui-badge tone="primary">{{ row.scholarshipPct }}%</ui-badge>
+      } @else {
+        —
+      }
+    </ng-template>
+    <ng-template uiCell="status" let-row>
+      <ui-badge [tone]="statusTone(row.status)">{{ statusLabel(row.status) }}</ui-badge>
+    </ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="filters().page"
+      [pageSize]="filters().pageSize"
+      [total]="page()?.total ?? 0"
+      (pageChange)="onPage($event)"
+    />
+  </ui-data-table>
+</section>

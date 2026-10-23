@@ -1,0 +1,119 @@
+<a ui-button variant="ghost" size="sm" icon="arrow-left" routerLink=".." class="back"
+  >Volver a correos</a
+>
+<div class="page-header">
+  <div>
+    <h1>Avisos de cobro</h1>
+    <p class="page-header__subtitle">
+      Notifica los cargos pendientes del mes a los acudientes por correo y/o WhatsApp (un mensaje
+      por cargo).
+    </p>
+  </div>
+</div>
+
+@if (result(); as res) {
+  <div class="stack mb">
+    <p>
+      <strong>{{ res.charges }}</strong> cargo(s) procesados.
+    </p>
+    @if (res.email; as s) {
+      <app-delivery-summary label="Correo" [summary]="s" />
+    }
+    @if (res.whatsapp; as s) {
+      <app-delivery-summary label="WhatsApp" [summary]="s" />
+    }
+  </div>
+}
+
+<div class="grid grid--2">
+  <form class="ui-card" [formGroup]="form" (ngSubmit)="send()" novalidate>
+    <h2 class="ui-card__title">Parámetros del envío</h2>
+    <div class="stack">
+      <ui-form-field
+        label="Mes de cobro"
+        hint="Cargos pendientes con vencimiento en este mes."
+        required
+      >
+        <ui-input type="month" formControlName="month" />
+      </ui-form-field>
+      <ui-form-field label="Concepto" hint="Opcional: deja vacío para todos los conceptos.">
+        <ui-select
+          [options]="conceptOptions()"
+          placeholder="Todos los conceptos"
+          formControlName="conceptId"
+        />
+      </ui-form-field>
+      <fieldset formGroupName="channels" class="radios">
+        <legend>Canales</legend>
+        <ui-checkbox formControlName="email">Correo electrónico</ui-checkbox>
+        <ui-checkbox formControlName="whatsapp">WhatsApp</ui-checkbox>
+      </fieldset>
+      @if (channelsInvalid()) {
+        <p class="danger muted-note" role="alert">Selecciona al menos un canal de envío.</p>
+      }
+      @if (useWhatsApp()) {
+        <ui-form-field
+          label="Plantilla de WhatsApp"
+          hint="Debe tener 5 variables (acudiente, concepto, valor, vencimiento, código)."
+        >
+          <ui-select
+            [options]="templateOptions()"
+            [placeholder]="null"
+            formControlName="templateName"
+          />
+        </ui-form-field>
+      }
+    </div>
+    <div class="actions-row">
+      <button ui-button type="button" icon="eye" [loading]="previewing()" (click)="loadPreview()">
+        Vista previa
+      </button>
+      <button ui-button type="submit" variant="primary" icon="megaphone" [loading]="sending()">
+        Enviar avisos
+      </button>
+    </div>
+  </form>
+
+  <section class="ui-card" aria-live="polite">
+    <h2 class="ui-card__title">Vista previa</h2>
+    @if (preview(); as p) {
+      @if (p.charges === 0) {
+        <ui-alert tone="warning" title="Sin cargos pendientes">
+          No hay cargos pendientes para {{ p.month }} con los filtros elegidos.
+        </ui-alert>
+      } @else {
+        <div class="kpis">
+          <ui-stat-card variant="border" label="Cargos" tone="primary" [value]="p.charges" />
+          <ui-stat-card
+            variant="border"
+            label="Total"
+            tone="success"
+            [value]="p.totalAmount | cop"
+          />
+          <ui-stat-card
+            variant="border"
+            label="Acudientes con correo"
+            tone="info"
+            [value]="p.guardiansWithEmail"
+          />
+          <ui-stat-card
+            variant="border"
+            label="Acudientes con móvil"
+            tone="info"
+            [value]="p.guardiansWithMobile"
+          />
+          <ui-stat-card
+            variant="border"
+            label="Estudiantes sin correo"
+            tone="warning"
+            [value]="p.studentsWithoutEmail"
+          />
+        </div>
+      }
+    } @else {
+      <p class="text-muted">
+        Elige el mes y pulsa «Vista previa» para ver cuántos cargos y acudientes se notificarán.
+      </p>
+    }
+  </section>
+</div>

@@ -1,0 +1,35 @@
+.month {
+  max-width: 12rem;
+}
+.period-name {
+  font-size: var(--text-lg);
+  font-weight: 700;
+  color: var(--color-text-strong);
+}
+.shortcuts {
+  display: grid;
+  gap: var(--space-2);
+}
+.shortcut {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: 0.6rem 0.75rem;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-soft);
+  color: var(--color-text);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: var(--text-sm);
+}
+.shortcut:hover,
+.shortcut:focus-visible {
+  background: var(--color-primary-soft);
+  color: var(--color-primary);
+}
+.card-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: var(--space-3);
+}

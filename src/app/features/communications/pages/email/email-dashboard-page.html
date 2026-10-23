@@ -1,0 +1,154 @@
+<div class="page-header">
+  <div>
+    <h1>Correos y comunicaciones</h1>
+    <p class="page-header__subtitle">Avisos, cobros y facturas enviados por correo electrónico.</p>
+  </div>
+  <div class="cluster">
+    @if (isAdmin()) {
+      <a ui-button variant="ghost" icon="cog" routerLink="herramientas">Herramientas</a>
+    }
+    @if (canBill()) {
+      <a ui-button variant="secondary" icon="banknotes" routerLink="cobros">Avisos de cobro</a>
+    }
+    <a ui-button variant="primary" icon="envelope" routerLink="redactar">Redactar aviso</a>
+  </div>
+</div>
+
+<section class="kpis mb" aria-label="Indicadores de correo">
+  <ui-stat-card
+    variant="border"
+    label="Total enviados"
+    tone="primary"
+    [loading]="kpis.isLoading()"
+    [value]="val(kpis)?.total ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Avisos"
+    tone="info"
+    [loading]="kpis.isLoading()"
+    [value]="val(kpis)?.notices ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Fact. de cobro"
+    tone="success"
+    [loading]="kpis.isLoading()"
+    [value]="val(kpis)?.billing ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="DIAN"
+    tone="warning"
+    [loading]="kpis.isLoading()"
+    [value]="val(kpis)?.dian ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Fallidos"
+    tone="danger"
+    [loading]="kpis.isLoading()"
+    [value]="val(kpis)?.failed ?? null"
+  />
+</section>
+
+<ui-filter-bar
+  class="mb"
+  [showClear]="hasFilters()"
+  (apply)="applyFilters()"
+  (clear)="clearFilters()"
+>
+  <ui-search-box
+    placeholder="Buscar por destinatario o asunto…"
+    [(value)]="search"
+    (search)="onSearch($event)"
+  />
+  <ui-form-field label="Tipo">
+    <ui-select
+      [options]="typeOptions"
+      placeholder="Todos los tipos"
+      [(ngModel)]="type"
+      [ngModelOptions]="{ standalone: true }"
+    />
+  </ui-form-field>
+  <ui-form-field label="Estado">
+    <ui-select
+      [options]="statusOptions"
+      placeholder="Todos los estados"
+      [(ngModel)]="status"
+      [ngModelOptions]="{ standalone: true }"
+    />
+  </ui-form-field>
+</ui-filter-bar>
+
+<section class="ui-card flush">
+  <h2 class="ui-card__title pad">Historial de correos</h2>
+  <ui-data-table
+    caption="Historial de correos"
+    [columns]="columns"
+    [rows]="val(logs)?.items ?? []"
+    [loading]="logs.isLoading()"
+    [actions]="actions"
+    emptyIcon="envelope"
+    emptyTitle="Sin correos registrados"
+    [emptyMessage]="
+      logs.error()
+        ? 'No se pudo cargar el historial.'
+        : 'Aún no se han enviado correos con estos filtros.'
+    "
+    (action)="onAction($event)"
+  >
+    <ng-template uiCell="type" let-row>
+      <ui-badge [tone]="typeTone(row.type)">{{ typeLabel(row.type) }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="toEmail" let-row>
+      <div class="who">
+        <strong>{{ row.toName || '—' }}</strong>
+        <span class="font-mono text-muted">{{ row.toEmail }}</span>
+      </div>
+    </ng-template>
+    <ng-template uiCell="subject" let-row>
+      <span class="truncate" [attr.title]="row.subject">{{ row.subject }}</span>
+    </ng-template>
+    <ng-template uiCell="status" let-row>
+      <ui-badge [status]="row.status" />
+    </ng-template>
+    <ng-template uiCell="sentByName" let-row>{{ row.sentByName || 'Sistema' }}</ng-template>
+    <ng-template uiCell="createdAt" let-row>{{ row.createdAt | dateEs: 'datetime' }}</ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="val(logs)?.page ?? 1"
+      [pageSize]="query().pageSize ?? 20"
+      [total]="val(logs)?.total ?? 0"
+      (pageChange)="changePage($event)"
+    />
+  </ui-data-table>
+</section>
+
+<ui-modal [(open)]="detailOpen" title="Detalle del correo" size="md">
+  @if (selected(); as log) {
+    <dl class="detail">
+      <dt>Destinatario</dt>
+      <dd>
+        {{ log.toName || '—' }} · <span class="font-mono">{{ log.toEmail }}</span>
+      </dd>
+      <dt>Asunto</dt>
+      <dd>{{ log.subject }}</dd>
+      <dt>Tipo</dt>
+      <dd>{{ typeLabel(log.type) }}</dd>
+      <dt>Estado</dt>
+      <dd>{{ statusText(log.status) }}</dd>
+      @if (log.errorMessage) {
+        <dt>Error</dt>
+        <dd class="danger">{{ log.errorMessage }}</dd>
+      }
+      <dt>Vista previa</dt>
+      <dd>{{ log.bodyPreview || '—' }}</dd>
+      <dt>Enviado</dt>
+      <dd>{{ log.createdAt | dateEs: 'datetime' }} · {{ log.sentByName || 'Sistema' }}</dd>
+    </dl>
+  }
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="detailOpen.set(false)">Cerrar</button>
+  </ng-container>
+</ui-modal>

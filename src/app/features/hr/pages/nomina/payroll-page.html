@@ -1,0 +1,185 @@
+<div class="page-header">
+  <div>
+    <h1>Nómina Electrónica</h1>
+    <p class="page-header__subtitle">Períodos, liquidación, aprobación y pago de la nómina.</p>
+  </div>
+  <div class="cluster">
+    <a ui-button variant="secondary" icon="cog" [routerLink]="[base, 'parametros']">Parámetros</a>
+    @if (canManage()) {
+      <button ui-button variant="primary" icon="plus" (click)="openCreate()">
+        Nueva liquidación
+      </button>
+    }
+  </div>
+</div>
+
+@if (showHrLinks()) {
+  <app-section-nav [links]="links" ariaLabel="Secciones de Capital Humano" />
+}
+
+<section class="ui-card" style="margin-bottom: var(--space-6)" aria-labelledby="kpi-title">
+  <div class="cluster" style="justify-content: space-between; margin-bottom: var(--space-4)">
+    <h2 id="kpi-title" class="ui-card__title" style="margin: 0; padding: 0; border: 0">
+      Indicadores del mes
+    </h2>
+    <label class="cluster" style="gap: var(--space-2)">
+      <span class="text-muted">Mes</span>
+      <ui-input
+        type="month"
+        ariaLabel="Mes de los indicadores"
+        [ngModel]="month()"
+        (ngModelChange)="month.set($event)"
+      />
+    </label>
+  </div>
+  <div class="grid grid--4">
+    <ui-stat-card
+      label="Empleados liquidados"
+      icon="users"
+      variant="border"
+      tone="primary"
+      [loading]="kpis.isLoading()"
+      [value]="kpi()?.employees ?? null"
+    />
+    <ui-stat-card
+      label="Salario bruto total"
+      icon="banknotes"
+      variant="border"
+      tone="info"
+      [loading]="kpis.isLoading()"
+      [value]="kpi() ? cop(kpi()!.gross) : null"
+    />
+    <ui-stat-card
+      label="Total deducciones"
+      variant="border"
+      tone="danger"
+      [loading]="kpis.isLoading()"
+      [value]="kpi() ? cop(kpi()!.deductions) : null"
+    />
+    <ui-stat-card
+      label="Neto a pagar"
+      variant="border"
+      tone="success"
+      [loading]="kpis.isLoading()"
+      [value]="kpi() ? cop(kpi()!.net) : null"
+    />
+  </div>
+</section>
+
+<h2 class="ui-card__title" style="border: 0; margin-bottom: var(--space-3)">Períodos de nómina</h2>
+<ui-filter-bar [showClear]="hasFilters()" (apply)="applyFilters()" (clear)="clearFilters()">
+  <ui-select
+    [formControl]="filterForm.controls.year"
+    [options]="yearOptions"
+    placeholder="Todos los años"
+    ariaLabel="Año"
+  />
+  <ui-select
+    [formControl]="filterForm.controls.status"
+    [options]="statusOptions"
+    placeholder="Todos los estados"
+    ariaLabel="Estado"
+  />
+</ui-filter-bar>
+
+@if (result.error()) {
+  <ui-alert
+    tone="error"
+    title="No se pudieron cargar los períodos"
+    style="margin-bottom: var(--space-4)"
+  >
+    {{ apiMessage(result.error()) }}
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Períodos de nómina"
+  [columns]="columns"
+  [rows]="rows()"
+  [loading]="result.isLoading()"
+  rowClickable
+  emptyIcon="wallet"
+  emptyTitle="No hay períodos"
+  emptyMessage="Crea una nueva liquidación para comenzar."
+  (rowClick)="open($event)"
+>
+  <ng-template uiCell="name" let-row>
+    <a [routerLink]="[base, 'periodos', row.id]"
+      ><strong>{{ row.name }}</strong></a
+    >
+    <div class="text-muted" style="font-size: var(--text-xs)">
+      {{ row.periodLabel }} · {{ frequencyLabels[row.frequency] }}
+    </div>
+  </ng-template>
+  <ng-template uiCell="deductionsTotal" let-value="value">
+    <span style="color: var(--color-danger)">-{{ cop($any(value)) }}</span>
+  </ng-template>
+  <ng-template uiCell="netTotal" let-value="value">
+    <strong style="color: var(--color-success)">{{ cop($any(value)) }}</strong>
+  </ng-template>
+  <ng-template uiCell="status" let-row>
+    <app-hr-status-badge kind="period" [status]="row.status" />
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page"
+    [pageSize]="filters().pageSize"
+    [pageSizeOptions]="[12, 24, 48]"
+    [total]="total()"
+    (pageChange)="changePage($event)"
+  />
+</ui-data-table>
+
+<ui-modal
+  [(open)]="createOpen"
+  title="Nueva liquidación"
+  description="El período se crea en borrador."
+>
+  <form id="period-form" class="stack" [formGroup]="createForm" (ngSubmit)="create()" novalidate>
+    @if (createError()) {
+      <ui-alert tone="error">{{ createError() }}</ui-alert>
+    }
+    <ui-form-field label="Nombre del período" hint="Opcional; la API propone uno si se deja vacío.">
+      <ui-input formControlName="name" [maxlength]="100" />
+    </ui-form-field>
+    <ui-form-field label="Frecuencia" required>
+      <ui-select formControlName="frequency" [options]="frequencyOptions" [placeholder]="null" />
+    </ui-form-field>
+    <div class="grid grid--2">
+      <ui-form-field label="Fecha de inicio" required>
+        <ui-input type="date" formControlName="startDate" />
+      </ui-form-field>
+      <ui-form-field
+        label="Fecha de fin"
+        required
+        [error]="
+          createForm.hasError('dateRange')
+            ? 'La fecha de fin no puede ser anterior al inicio.'
+            : null
+        "
+      >
+        <ui-input type="date" formControlName="endDate" />
+      </ui-form-field>
+    </div>
+    <ui-form-field label="Fecha de pago" required>
+      <ui-input type="date" formControlName="paymentDate" />
+    </ui-form-field>
+    <ui-alert tone="info">
+      Después de crearlo registre las novedades (horas extra, bonificaciones, descuentos) y liquide
+      el período. Los permisos aprobados se aplican automáticamente.
+    </ui-alert>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="createOpen.set(false)">Cancelar</button>
+    <button
+      ui-button
+      type="submit"
+      form="period-form"
+      variant="primary"
+      icon="plus"
+      [loading]="creating()"
+    >
+      Crear período
+    </button>
+  </ng-container>
+</ui-modal>

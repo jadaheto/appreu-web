@@ -1,0 +1,80 @@
+:host {
+  display: block;
+}
+.toolbar {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  max-width: 216mm;
+  margin: 0 auto var(--space-4);
+}
+.sheet {
+  max-width: 216mm;
+  min-height: 279mm;
+  margin: 0 auto;
+  padding: 18mm 16mm;
+  background: #fff;
+  color: #1e293b;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+}
+.head {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 1rem;
+  border-bottom: 2px solid #4f46e5;
+  border-bottom-color: var(--color-primary);
+}
+.head img {
+  object-fit: contain;
+}
+.inst {
+  flex: 1;
+  font-size: 0.8rem;
+  color: #475569;
+}
+.inst-name {
+  font-size: 1.1rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+.doc {
+  text-align: right;
+  font-size: 0.8rem;
+}
+.doc-title {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #0f172a;
+}
+.muted {
+  color: #64748b;
+}
+.body {
+  flex: 1;
+  padding: 1.25rem 0;
+  font-size: 0.875rem;
+}
+.foot:not(:empty) {
+  padding-top: 1rem;
+  border-top: 1px solid #e2e8f0;
+  font-size: 0.75rem;
+  color: #64748b;
+}
+@media print {
+  .sheet {
+    box-shadow: none;
+    border-radius: 0;
+    padding: 0;
+    min-height: auto;
+    max-width: none;
+  }
+}
+@page {
+  size: letter;
+  margin: 14mm;
+}

@@ -1,0 +1,193 @@
+<div class="page-header">
+  <div>
+    <h1>Gestión de usuarios</h1>
+    <p class="page-header__subtitle">Cuentas con acceso al sistema, roles y estado.</p>
+  </div>
+  <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nuevo usuario</button>
+</div>
+
+<section class="kpis mb" aria-label="Indicadores de usuarios">
+  <ui-stat-card
+    variant="border"
+    label="Total"
+    tone="primary"
+    [loading]="stats.isLoading()"
+    [value]="val(stats)?.total ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Administradores"
+    tone="info"
+    [loading]="stats.isLoading()"
+    [value]="val(stats)?.admins ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Personal"
+    tone="warning"
+    [loading]="stats.isLoading()"
+    [value]="val(stats)?.staff ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Familias"
+    tone="success"
+    [loading]="stats.isLoading()"
+    [value]="val(stats)?.families ?? null"
+  />
+  <ui-stat-card
+    variant="border"
+    label="Inactivos"
+    tone="danger"
+    [loading]="stats.isLoading()"
+    [value]="val(stats)?.inactive ?? null"
+  />
+</section>
+
+<ui-filter-bar
+  class="mb"
+  [showClear]="hasFilters()"
+  (apply)="applyFilters()"
+  (clear)="clearFilters()"
+>
+  <ui-search-box
+    placeholder="Buscar por nombre o correo…"
+    [(value)]="search"
+    (search)="onSearch($event)"
+  />
+  <ui-form-field label="Rol">
+    <ui-select [options]="filterRoleOptions" placeholder="Todos los roles" [(ngModel)]="role" />
+  </ui-form-field>
+  <ui-form-field label="Estado">
+    <ui-select [options]="activeOptions" [placeholder]="null" [(ngModel)]="active" />
+  </ui-form-field>
+</ui-filter-bar>
+
+<section class="ui-card flush">
+  <ui-data-table
+    caption="Usuarios"
+    [columns]="columns"
+    [rows]="val(result)?.items ?? []"
+    [loading]="result.isLoading() || busyId() !== null"
+    [actions]="actions"
+    [rowClass]="rowClass"
+    emptyIcon="users"
+    emptyTitle="No hay usuarios"
+    [emptyMessage]="hasFilters() ? 'Ningún usuario coincide con los filtros.' : ''"
+    (action)="onAction($event)"
+  >
+    <ng-template uiCell="name" let-row>
+      <div class="user">
+        <ui-avatar [name]="row.name" [src]="row.avatar" size="sm" />
+        <div class="who">
+          <strong>
+            {{ row.name }}
+            @if (row.id === me()) {
+              <ui-badge tone="primary">Tú</ui-badge>
+            }
+          </strong>
+          @if (row.mustChangePassword) {
+            <span class="muted-note">Debe cambiar la contraseña</span>
+          }
+        </div>
+      </div>
+    </ng-template>
+    <ng-template uiCell="role" let-row>
+      <ui-badge [tone]="isAdminRole(row.role) ? 'primary' : 'neutral'">{{
+        roleLabel(row.role)
+      }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="effectiveStatus" let-row>
+      <ui-badge [tone]="statusTone(row.effectiveStatus)">{{
+        statusLabel(row.effectiveStatus)
+      }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="lastLogin" let-row>{{ row.lastLogin | dateEs: 'datetime' }}</ng-template>
+    <ng-template uiCell="createdAt" let-row>{{ row.createdAt | dateEs }}</ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="val(result)?.page ?? 1"
+      [pageSize]="query().pageSize ?? 20"
+      [total]="val(result)?.total ?? 0"
+      (pageChange)="changePage($event)"
+    />
+  </ui-data-table>
+</section>
+
+<ui-modal
+  [(open)]="formOpen"
+  [title]="editing() ? 'Editar usuario' : 'Nuevo usuario'"
+  size="md"
+  [description]="
+    editing()
+      ? ''
+      : 'Se generará una contraseña temporal que el usuario deberá cambiar al ingresar.'
+  "
+>
+  <form id="user-form" [formGroup]="form" (ngSubmit)="save()" novalidate class="stack">
+    @if (formError(); as e) {
+      <ui-alert tone="error" dismissible (dismissed)="formError.set(null)">{{ e }}</ui-alert>
+    }
+    <ui-form-field label="Nombre completo" required>
+      <ui-input formControlName="name" autocomplete="off" [maxlength]="150" />
+    </ui-form-field>
+    <ui-form-field label="Correo electrónico" required>
+      <ui-input
+        type="email"
+        formControlName="email"
+        autocomplete="off"
+        placeholder="usuario@colegio.edu.co"
+      />
+    </ui-form-field>
+    <ui-form-field
+      label="Rol"
+      [hint]="editing()?.id === me() ? 'No puedes cambiar tu propio rol.' : ''"
+      required
+    >
+      <ui-select [options]="formRoleOptions()" [placeholder]="null" formControlName="role" />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="formOpen.set(false)">Cancelar</button>
+    <button
+      ui-button
+      type="submit"
+      form="user-form"
+      variant="primary"
+      icon="check"
+      [loading]="saving()"
+    >
+      {{ editing() ? 'Guardar cambios' : 'Crear usuario' }}
+    </button>
+  </ng-container>
+</ui-modal>
+
+<ui-modal
+  [open]="credentialsOpen()"
+  title="Contraseña temporal"
+  size="sm"
+  [closeOnBackdrop]="false"
+  (closed)="closeCredentials()"
+>
+  @if (credentials(); as c) {
+    <div class="stack">
+      <ui-alert tone="warning" title="Se muestra una sola vez">
+        Entrégala de forma segura a {{ c.user.name }}. Deberá cambiarla al iniciar sesión.
+      </ui-alert>
+      <p>
+        Usuario: <strong class="font-mono">{{ c.user.email }}</strong>
+      </p>
+      <div class="secret">
+        <code class="font-mono" aria-label="Contraseña temporal">{{ c.temporaryPassword }}</code>
+        <button ui-button type="button" size="sm" icon="clipboard" (click)="copyPassword()">
+          Copiar
+        </button>
+      </div>
+    </div>
+  }
+  <ng-container uiModalFooter>
+    <button ui-button type="button" variant="primary" (click)="closeCredentials()">
+      Entendido
+    </button>
+  </ng-container>
+</ui-modal>

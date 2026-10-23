@@ -1,0 +1,139 @@
+<div class="page-header">
+  <div>
+    <h1>Plan de cuentas</h1>
+    <p class="page-header__subtitle">PUC colombiano (Decreto 2650/93) en estructura jerárquica</p>
+  </div>
+  <div class="actions-row">
+    @if (canSeed()) {
+      <button ui-button icon="download" [loading]="seeding()" (click)="seed()">
+        Cargar PUC base
+      </button>
+    }
+    <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nueva cuenta</button>
+  </div>
+</div>
+
+@if (tree.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el plan de cuentas" class="mb">
+    <button ui-button size="sm" variant="ghost" (click)="tree.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+@if (isEmpty()) {
+  <div class="ui-card">
+    <ui-empty-state
+      icon="squares"
+      title="Plan de cuentas vacío"
+      message="Crea tus cuentas o carga el PUC base para colegios para empezar a registrar asientos."
+    >
+      <div class="empty-actions">
+        <button ui-button variant="primary" icon="plus" (click)="openCreate()">Nueva cuenta</button>
+        @if (canSeed()) {
+          <button ui-button icon="download" [loading]="seeding()" (click)="seed()">
+            Cargar PUC base Colombia
+          </button>
+        }
+      </div>
+    </ui-empty-state>
+  </div>
+} @else {
+  <div class="toolbar">
+    <ui-search-box
+      placeholder="Buscar por código o nombre…"
+      ariaLabel="Buscar cuentas"
+      [value]="search()"
+      (search)="search.set($event)"
+    />
+    @if (!search()) {
+      <div class="actions-row">
+        <button ui-button size="sm" variant="ghost" icon="chevron-down" (click)="expandAll(true)">
+          Expandir todo
+        </button>
+        <button ui-button size="sm" variant="ghost" icon="chevron-up" (click)="expandAll(false)">
+          Contraer todo
+        </button>
+      </div>
+    }
+  </div>
+
+  <ui-data-table
+    caption="Plan de cuentas"
+    [columns]="columns"
+    [rows]="rows()"
+    [actions]="actions"
+    [loading]="tree.isLoading() || searchResult.isLoading()"
+    emptyTitle="No hay cuentas que coincidan"
+    (action)="onAction($event)"
+  >
+    <ng-template uiCell="code" let-row>
+      <span class="code-cell" [style.padding-left.rem]="row.depth * 1.25">
+        @if (row.hasChildren) {
+          <button
+            type="button"
+            class="toggle"
+            [attr.aria-expanded]="isExpanded(row)"
+            [attr.aria-label]="(isExpanded(row) ? 'Contraer ' : 'Expandir ') + row.code"
+            (click)="toggle(row)"
+          >
+            <ui-icon [name]="isExpanded(row) ? 'chevron-down' : 'chevron-right'" [size]="14" />
+          </button>
+        } @else {
+          <span class="spacer" aria-hidden="true"></span>
+        }
+        <span [class]="'lvl-' + row.level">{{ row.code }}</span>
+      </span>
+    </ng-template>
+    <ng-template uiCell="name" let-row>
+      <span [class]="'lvl-' + row.level">{{ row.name }}</span>
+    </ng-template>
+    <ng-template uiCell="type" let-row>
+      <ui-badge [tone]="typeTones[row.type]">{{ typeLabels[row.type] }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="isTransactional" let-row>
+      @if (row.isTransactional) {
+        <ui-badge tone="success" dot>Movimiento</ui-badge>
+      } @else {
+        <ui-badge tone="neutral">Mayor</ui-badge>
+      }
+    </ng-template>
+  </ui-data-table>
+}
+
+<ui-modal
+  [(open)]="modalOpen"
+  [title]="editing() ? 'Editar cuenta ' + editing()!.code : 'Nueva cuenta PUC'"
+  [description]="
+    editing()
+      ? 'Solo se puede renombrar o cambiar si recibe movimientos.'
+      : 'El tipo y la naturaleza se derivan del primer dígito si no los indicas.'
+  "
+>
+  <form id="account-form" class="form-grid" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    @if (serverError()) {
+      <ui-alert tone="error" class="full">{{ serverError() }}</ui-alert>
+    }
+    <ui-form-field label="Código" required hint="Ej. 110505" [errorMessages]="codeErrors">
+      <ui-input formControlName="code" mono inputmode="numeric" />
+    </ui-form-field>
+    <ui-form-field label="Tipo">
+      <ui-select formControlName="type" [options]="typeOptions" [placeholder]="null" />
+    </ui-form-field>
+    <ui-form-field label="Nombre" required class="full">
+      <ui-input formControlName="name" placeholder="Ej. Caja general" />
+    </ui-form-field>
+    <ui-form-field label="Cuenta padre" class="full">
+      <ui-select formControlName="parent" [options]="parentOptions()" [placeholder]="null" />
+    </ui-form-field>
+    <div class="full">
+      <ui-checkbox formControlName="isTransactional">
+        ¿Recibe movimientos? (cuenta auxiliar donde se registran débitos y créditos)
+      </ui-checkbox>
+    </div>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="modalOpen.set(false)">Cancelar</button>
+    <button ui-button variant="primary" type="submit" form="account-form" [loading]="saving()">
+      Guardar
+    </button>
+  </ng-container>
+</ui-modal>

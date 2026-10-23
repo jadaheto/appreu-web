@@ -1,0 +1,470 @@
+<div class="page-header no-print">
+  <div>
+    <h1>Reportes contables</h1>
+    <p class="page-header__subtitle">{{ def().description }}</p>
+  </div>
+</div>
+
+<ui-filter-bar
+  class="mb no-print"
+  showClear
+  applyLabel="Generar"
+  (apply)="generate()"
+  (clear)="clear()"
+>
+  <ui-form-field label="Reporte">
+    <ui-select
+      [options]="reportOptions"
+      [placeholder]="null"
+      [ngModel]="slug()"
+      (ngModelChange)="onReportChange($event)"
+    />
+  </ui-form-field>
+  @if (slug() === 'balance-general') {
+    <ui-form-field label="Fecha de corte">
+      <ui-input type="date" [ngModel]="asOf()" (ngModelChange)="asOf.set(str($event))" />
+    </ui-form-field>
+  } @else {
+    <ui-form-field label="Desde">
+      <ui-input type="date" [ngModel]="from()" (ngModelChange)="from.set(str($event))" />
+    </ui-form-field>
+    <ui-form-field label="Hasta">
+      <ui-input type="date" [ngModel]="to()" (ngModelChange)="to.set(str($event))" />
+    </ui-form-field>
+  }
+  @if (slug() === 'balance-prueba') {
+    <ui-form-field label="Nivel">
+      <ui-select
+        placeholder="Cuentas de movimiento"
+        [options]="levelOptions"
+        [ngModel]="level()"
+        (ngModelChange)="level.set($event)"
+      />
+    </ui-form-field>
+  }
+  @if (slug() === 'diario') {
+    <ui-form-field label="Tipo de comprobante">
+      <ui-select
+        placeholder="Todos"
+        [options]="voucherOptions"
+        [ngModel]="voucherType()"
+        (ngModelChange)="voucherType.set($event)"
+      />
+    </ui-form-field>
+  }
+  @if (slug() === 'mayor' || slug() === 'auxiliar') {
+    <ui-form-field [label]="slug() === 'auxiliar' ? 'Cuenta (requerida)' : 'Cuenta (opcional)'">
+      <ui-select
+        [placeholder]="slug() === 'auxiliar' ? 'Seleccione cuenta…' : 'Todas las cuentas'"
+        [options]="accountOptions()"
+        [ngModel]="accountId()"
+        (ngModelChange)="accountId.set($event)"
+      />
+    </ui-form-field>
+  }
+  @if (slug() === 'auxiliar') {
+    <ui-form-field label="Tercero">
+      <ui-select
+        placeholder="Todos"
+        [options]="partyOptions()"
+        [ngModel]="thirdPartyId()"
+        (ngModelChange)="thirdPartyId.set($event)"
+      />
+    </ui-form-field>
+  }
+</ui-filter-bar>
+
+@if (validation(); as msg) {
+  @if (!applied()) {
+    <ui-alert tone="info" class="mb no-print">{{ msg }}</ui-alert>
+  }
+}
+
+@if (report.isLoading() && !result()) {
+  <div class="ui-card center"><ui-spinner size="lg" /></div>
+} @else if (report.error()) {
+  <ui-alert tone="error" title="No se pudo generar el reporte">{{
+    report.error()?.message
+  }}</ui-alert>
+} @else if (result()) {
+  <ui-printable-sheet
+    [institutionName]="branding.schoolName()"
+    [logoUrl]="branding.logoUrl()"
+    [documentTitle]="def().label"
+    [issuedAt]="subtitle()"
+  >
+    <div uiSheetActions class="export-actions" role="group" aria-label="Exportar reporte">
+      <button
+        ui-button
+        icon="download"
+        [loading]="exporting() === 'csv'"
+        [disabled]="exporting() !== null"
+        (click)="exportAs('csv')"
+      >
+        Exportar CSV
+      </button>
+      <button
+        ui-button
+        icon="download"
+        [loading]="exporting() === 'xlsx'"
+        [disabled]="exporting() !== null"
+        (click)="exportAs('xlsx')"
+      >
+        Exportar Excel
+      </button>
+      <button
+        ui-button
+        icon="document-text"
+        [loading]="exporting() === 'pdf'"
+        [disabled]="exporting() !== null"
+        (click)="exportAs('pdf')"
+      >
+        Exportar PDF
+      </button>
+    </div>
+
+    <!-- Balance de prueba -->
+    @if (trial(); as r) {
+      <div class="scroll-x">
+        <table class="simple-table">
+          <caption class="sr-only">
+            Balance de prueba
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Código</th>
+              <th scope="col">Cuenta</th>
+              <th scope="col" class="num">Saldo inicial</th>
+              <th scope="col" class="num">Débitos</th>
+              <th scope="col" class="num">Créditos</th>
+              <th scope="col" class="num">Saldo débito</th>
+              <th scope="col" class="num">Saldo crédito</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of r.rows; track row.code) {
+              <tr [class]="'lvl-' + row.level">
+                <td class="mono">{{ row.code }}</td>
+                <td [class]="'type-' + row.type">{{ row.name }}</td>
+                <td class="num" [class.neg]="row.openingBalance < 0">
+                  {{ cop(row.openingBalance) }}
+                </td>
+                <td class="num">{{ cop(row.debit) }}</td>
+                <td class="num">{{ cop(row.credit) }}</td>
+                <td class="num">{{ row.debitBalance ? cop(row.debitBalance) : '' }}</td>
+                <td class="num">{{ row.creditBalance ? cop(row.creditBalance) : '' }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7"><ui-empty-state title="Sin movimientos en el rango" /></td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="2">
+                TOTALES ·
+                <span [class]="r.balanced ? 'balanced' : 'unbalanced'">{{
+                  r.balanced ? '✓ Cuadrado' : '⚠ Descuadrado'
+                }}</span>
+              </td>
+              <td></td>
+              <td class="num">{{ cop(r.totals.debit) }}</td>
+              <td class="num">{{ cop(r.totals.credit) }}</td>
+              <td class="num">{{ cop(r.totals.debitBalance) }}</td>
+              <td class="num">{{ cop(r.totals.creditBalance) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+
+    <!-- Libro diario -->
+    @if (journal(); as r) {
+      <div class="scroll-x">
+        <table class="simple-table">
+          <caption class="sr-only">
+            Libro diario
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Comprobante</th>
+              <th scope="col">Cuenta</th>
+              <th scope="col">Tercero</th>
+              <th scope="col">Detalle</th>
+              <th scope="col" class="num">Débito</th>
+              <th scope="col" class="num">Crédito</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (e of r.entries.items; track e.id) {
+              <tr class="entry-head">
+                <td>{{ e.date | day }}</td>
+                <td class="mono">{{ e.displayNumber }}</td>
+                <td colspan="5">{{ e.description }}</td>
+              </tr>
+              @for (l of e.lines ?? []; track $index) {
+                <tr>
+                  <td></td>
+                  <td></td>
+                  <td>
+                    <span class="mono">{{ l.accountCode }}</span> {{ l.accountName }}
+                  </td>
+                  <td>{{ l.thirdPartyName ?? '' }}</td>
+                  <td>{{ l.description ?? '' }}</td>
+                  <td class="num">{{ l.debit ? cop(l.debit) : '' }}</td>
+                  <td class="num">{{ l.credit ? cop(l.credit) : '' }}</td>
+                </tr>
+              }
+            } @empty {
+              <tr>
+                <td colspan="7">
+                  <ui-empty-state title="Sin asientos contabilizados en el rango" />
+                </td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="5">TOTALES DEL RANGO</td>
+              <td class="num">{{ cop(r.totals.debit) }}</td>
+              <td class="num">{{ cop(r.totals.credit) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      <div class="no-print">
+        <ui-pagination
+          [page]="applied()?.page ?? 1"
+          [pageSize]="applied()?.pageSize ?? 50"
+          [total]="r.entries.total"
+          (pageChange)="onPage($event)"
+        />
+      </div>
+    }
+
+    <!-- Libro mayor -->
+    @if (ledger(); as r) {
+      <div class="scroll-x">
+        <table class="simple-table">
+          <caption class="sr-only">
+            Libro mayor
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Código</th>
+              <th scope="col">Cuenta</th>
+              <th scope="col">Naturaleza</th>
+              <th scope="col" class="num">Saldo inicial</th>
+              <th scope="col" class="num">Débitos</th>
+              <th scope="col" class="num">Créditos</th>
+              <th scope="col" class="num">Saldo final</th>
+            </tr>
+          </thead>
+          <tbody>
+            @for (row of r.rows; track row.code) {
+              <tr>
+                <td class="mono">{{ row.code }}</td>
+                <td>{{ row.name }}</td>
+                <td>{{ row.nature === 'debito' ? 'Débito' : 'Crédito' }}</td>
+                <td class="num" [class.neg]="row.openingBalance < 0">
+                  {{ cop(row.openingBalance) }}
+                </td>
+                <td class="num">{{ cop(row.debit) }}</td>
+                <td class="num">{{ cop(row.credit) }}</td>
+                <td class="num" [class.neg]="row.closingBalance < 0">
+                  {{ cop(row.closingBalance) }}
+                </td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7"><ui-empty-state title="Sin movimientos en el rango" /></td>
+              </tr>
+            }
+          </tbody>
+        </table>
+      </div>
+      @if (r.lines?.length) {
+        <h3 class="report-head">Movimientos de la cuenta</h3>
+        <ng-container *ngTemplateOutlet="auxLines; context: { $implicit: r.lines }" />
+      }
+    }
+
+    <!-- Libro auxiliar -->
+    @if (auxiliary(); as r) {
+      <div class="report-head">
+        <h2>
+          <span class="mono">{{ r.account.code }}</span> {{ r.account.name }}
+        </h2>
+        <p class="muted">
+          Naturaleza {{ r.account.nature === 'debito' ? 'débito' : 'crédito' }} · Saldo inicial
+          {{ cop(r.openingBalance) }}
+        </p>
+      </div>
+      <div class="scroll-x">
+        <table class="simple-table">
+          <caption class="sr-only">
+            Libro auxiliar
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">Fecha</th>
+              <th scope="col">Comprobante</th>
+              <th scope="col">Descripción</th>
+              <th scope="col">Tercero</th>
+              <th scope="col" class="num">Débito</th>
+              <th scope="col" class="num">Crédito</th>
+              <th scope="col" class="num">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr class="subtotal">
+              <td colspan="6">Saldo inicial</td>
+              <td class="num">{{ cop(r.openingBalance) }}</td>
+            </tr>
+            @for (l of r.lines; track $index) {
+              <tr>
+                <td>{{ l.date | day }}</td>
+                <td class="mono">{{ l.voucher }}</td>
+                <td>{{ l.description || l.entryDescription }}</td>
+                <td>{{ l.thirdPartyName ?? '' }}</td>
+                <td class="num">{{ l.debit ? cop(l.debit) : '' }}</td>
+                <td class="num">{{ l.credit ? cop(l.credit) : '' }}</td>
+                <td class="num" [class.neg]="l.balance < 0">{{ cop(l.balance) }}</td>
+              </tr>
+            } @empty {
+              <tr>
+                <td colspan="7" class="muted">Sin movimientos en el rango.</td>
+              </tr>
+            }
+          </tbody>
+          <tfoot>
+            <tr>
+              <td colspan="4">Saldo final</td>
+              <td class="num">{{ cop(r.totals.debit) }}</td>
+              <td class="num">{{ cop(r.totals.credit) }}</td>
+              <td class="num" [class.neg]="r.closingBalance < 0">{{ cop(r.closingBalance) }}</td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+    }
+
+    <!-- Estado de resultados -->
+    @if (income(); as r) {
+      <table class="simple-table">
+        <caption class="sr-only">
+          Estado de resultados
+        </caption>
+        <tbody>
+          <ng-container *ngTemplateOutlet="section; context: { title: 'Ingresos', s: r.income }" />
+          <ng-container *ngTemplateOutlet="section; context: { title: 'Costos', s: r.costs }" />
+          <tr class="statement-total">
+            <td colspan="2">Utilidad bruta</td>
+            <td class="num" [class.neg]="r.grossProfit < 0">{{ cop(r.grossProfit) }}</td>
+          </tr>
+          <ng-container *ngTemplateOutlet="section; context: { title: 'Gastos', s: r.expenses }" />
+          <tr class="statement-total">
+            <td colspan="2">{{ r.netIncome >= 0 ? 'Utilidad neta' : 'Pérdida neta' }}</td>
+            <td class="num" [class.neg]="r.netIncome < 0">{{ cop(r.netIncome) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    }
+
+    <!-- Balance general -->
+    @if (sheet(); as r) {
+      <table class="simple-table">
+        <caption class="sr-only">
+          Balance general
+        </caption>
+        <tbody>
+          <ng-container *ngTemplateOutlet="section; context: { title: 'Activo', s: r.assets }" />
+          <ng-container
+            *ngTemplateOutlet="section; context: { title: 'Pasivo', s: r.liabilities }"
+          />
+          <ng-container
+            *ngTemplateOutlet="section; context: { title: 'Patrimonio', s: r.equity }"
+          />
+          <tr>
+            <td></td>
+            <td>Resultado del ejercicio</td>
+            <td class="num" [class.neg]="r.periodResult < 0">{{ cop(r.periodResult) }}</td>
+          </tr>
+          <tr class="subtotal">
+            <td colspan="2">Total patrimonio</td>
+            <td class="num">{{ cop(r.totalEquity) }}</td>
+          </tr>
+          <tr class="statement-total">
+            <td colspan="2">
+              Total pasivo + patrimonio ·
+              <span [class]="r.balanced ? 'balanced' : 'unbalanced'">{{
+                r.balanced ? '✓ Activo = Pasivo + Patrimonio' : '⚠ Descuadrado'
+              }}</span>
+            </td>
+            <td class="num">{{ cop(r.totalLiabilitiesAndEquity) }}</td>
+          </tr>
+        </tbody>
+      </table>
+    }
+
+    <p uiSheetFooter class="muted">Generado {{ today }} · Cifras en pesos colombianos (COP)</p>
+  </ui-printable-sheet>
+} @else if (!validation()) {
+  <div class="ui-card">
+    <ui-empty-state icon="chart-bar" title="Configura los filtros y pulsa Generar" />
+  </div>
+}
+
+<ng-template #section let-title="title" let-s="s">
+  <tr class="section">
+    <td colspan="3">{{ title }}</td>
+  </tr>
+  @for (row of s.rows; track row.code) {
+    <tr>
+      <td class="mono">{{ row.code }}</td>
+      <td>{{ row.name }}</td>
+      <td class="num" [class.neg]="row.amount < 0">{{ cop(row.amount) }}</td>
+    </tr>
+  } @empty {
+    <tr>
+      <td colspan="3" class="muted">Sin saldos.</td>
+    </tr>
+  }
+  <tr class="subtotal">
+    <td colspan="2">Total {{ title.toLowerCase() }}</td>
+    <td class="num">{{ cop(s.total) }}</td>
+  </tr>
+</ng-template>
+
+<ng-template #auxLines let-lines>
+  <div class="scroll-x">
+    <table class="simple-table">
+      <thead>
+        <tr>
+          <th scope="col">Fecha</th>
+          <th scope="col">Comprobante</th>
+          <th scope="col">Descripción</th>
+          <th scope="col">Tercero</th>
+          <th scope="col" class="num">Débito</th>
+          <th scope="col" class="num">Crédito</th>
+          <th scope="col" class="num">Saldo</th>
+        </tr>
+      </thead>
+      <tbody>
+        @for (l of lines; track $index) {
+          <tr>
+            <td>{{ l.date | day }}</td>
+            <td class="mono">{{ l.voucher }}</td>
+            <td>{{ l.description || l.entryDescription }}</td>
+            <td>{{ l.thirdPartyName ?? '' }}</td>
+            <td class="num">{{ l.debit ? cop(l.debit) : '' }}</td>
+            <td class="num">{{ l.credit ? cop(l.credit) : '' }}</td>
+            <td class="num">{{ cop(l.balance) }}</td>
+          </tr>
+        }
+      </tbody>
+    </table>
+  </div>
+</ng-template>

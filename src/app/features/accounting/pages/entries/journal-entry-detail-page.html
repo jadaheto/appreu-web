@@ -1,0 +1,191 @@
+<div class="page-header no-print">
+  <div>
+    <a [routerLink]="base + '/asientos'" class="muted">← Volver a comprobantes</a>
+    <h1>
+      {{ doc() || 'Comprobante' }}
+      @if (data(); as e) {
+        <ui-badge [tone]="statusTones[e.status]">{{ statusLabels[e.status] }}</ui-badge>
+      }
+    </h1>
+  </div>
+  @if (data(); as e) {
+    <div class="actions-row">
+      @if (e.status === 'draft') {
+        <a ui-button icon="pencil" [routerLink]="base + '/asientos/' + e.id + '/editar'">Editar</a>
+        <button
+          ui-button
+          variant="danger"
+          icon="trash"
+          [loading]="busy() === 'delete'"
+          (click)="removeDraft(e)"
+        >
+          Eliminar
+        </button>
+        <button
+          ui-button
+          variant="primary"
+          icon="check"
+          [loading]="busy() === 'post'"
+          (click)="post(e)"
+        >
+          Contabilizar
+        </button>
+      }
+      @if (e.status === 'posted') {
+        <button ui-button icon="arrows-up-down" (click)="openReverse()">Revertir</button>
+        <button ui-button variant="danger" icon="x-mark" (click)="openVoid()">Anular</button>
+      }
+    </div>
+  }
+</div>
+
+@if (entry.isLoading() && !data()) {
+  <div class="ui-card" style="display: grid; place-items: center"><ui-spinner size="lg" /></div>
+} @else if (entry.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el comprobante">
+    {{ entry.error()?.message }}
+  </ui-alert>
+} @else if (data(); as e) {
+  @if (e.status === 'voided') {
+    <ui-alert tone="warning" class="mb no-print" title="Asiento anulado">
+      {{ e.voidedAt | dateEs: 'datetime' }} · Motivo: {{ e.voidReason || '—' }}
+    </ui-alert>
+  }
+  @if (e.reversalOfId) {
+    <ui-alert tone="info" class="mb no-print">
+      Este asiento revierte el
+      <a [routerLink]="base + '/asientos/' + e.reversalOfId">comprobante #{{ e.reversalOfId }}</a
+      >.
+    </ui-alert>
+  }
+
+  <ui-printable-sheet
+    [institutionName]="branding.schoolName()"
+    [logoUrl]="branding.logoUrl()"
+    [documentTitle]="e.typeLabel"
+    [documentNumber]="doc()"
+    [issuedAt]="e.date | day"
+  >
+    <dl class="dl mb">
+      <dt>Fecha</dt>
+      <dd>{{ e.date | day }}</dd>
+      <dt>Tipo</dt>
+      <dd>{{ e.type }} — {{ e.typeLabel }}</dd>
+      <dt>Periodo</dt>
+      <dd>{{ periodName() }}</dd>
+      <dt>Descripción</dt>
+      <dd>{{ e.description }}</dd>
+      <dt>Estado</dt>
+      <dd>{{ statusLabels[e.status] }}</dd>
+      @if (e.sourceType) {
+        <dt>Origen</dt>
+        <dd>Automático · {{ e.sourceType }} {{ e.sourceId }}</dd>
+      }
+      @if (e.postedAt) {
+        <dt>Contabilizado</dt>
+        <dd>{{ e.postedAt | dateEs: 'datetime' }}</dd>
+      }
+    </dl>
+
+    <div class="scroll-x">
+      <table class="simple-table">
+        <caption class="sr-only">
+          Líneas del asiento
+        </caption>
+        <thead>
+          <tr>
+            <th scope="col">Cuenta</th>
+            <th scope="col">Tercero</th>
+            <th scope="col">Detalle</th>
+            <th scope="col" class="num">Débito</th>
+            <th scope="col" class="num">Crédito</th>
+          </tr>
+        </thead>
+        <tbody>
+          @for (l of e.lines ?? []; track $index) {
+            <tr>
+              <td>
+                <span class="mono">{{ l.accountCode }}</span> — {{ l.accountName }}
+              </td>
+              <td>{{ l.thirdPartyName ?? '—' }}</td>
+              <td>{{ l.description ?? '—' }}</td>
+              <td class="num">{{ l.debit ? cop(l.debit) : '' }}</td>
+              <td class="num">{{ l.credit ? cop(l.credit) : '' }}</td>
+            </tr>
+          }
+        </tbody>
+        <tfoot>
+          <tr>
+            <td colspan="3">TOTAL</td>
+            <td class="num">{{ cop(e.totalDebit) }}</td>
+            <td class="num">{{ cop(e.totalCredit) }}</td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p uiSheetFooter class="muted">
+      Elaboró: ____________________ &nbsp;&nbsp; Revisó: ____________________ &nbsp;&nbsp; Aprobó:
+      ____________________
+    </p>
+  </ui-printable-sheet>
+
+  <ui-modal
+    [(open)]="voidOpen"
+    [title]="'Anular ' + doc()"
+    description="El asiento queda anulado sin efecto contable. El motivo queda registrado."
+  >
+    <form id="void-form" (submit)="$event.preventDefault(); voidEntry(e)" novalidate>
+      <ui-form-field label="Motivo de anulación" required>
+        <ui-textarea [formControl]="voidReason" [maxlength]="255" />
+      </ui-form-field>
+    </form>
+    <ng-container uiModalFooter>
+      <button ui-button type="button" (click)="voidOpen.set(false)">Cancelar</button>
+      <button
+        ui-button
+        variant="danger"
+        type="submit"
+        form="void-form"
+        [loading]="busy() === 'void'"
+      >
+        Anular asiento
+      </button>
+    </ng-container>
+  </ui-modal>
+
+  <ui-modal
+    [(open)]="reverseOpen"
+    [title]="'Revertir ' + doc()"
+    description="Se registra un contra-asiento con débitos y créditos invertidos (útil cuando el periodo original está cerrado)."
+  >
+    <form
+      id="reverse-form"
+      class="form-grid"
+      [formGroup]="reverseForm"
+      (ngSubmit)="reverse(e)"
+      novalidate
+    >
+      <ui-form-field label="Fecha del contra-asiento" required>
+        <ui-input type="date" formControlName="date" />
+      </ui-form-field>
+      <ui-form-field label="Tipo de comprobante">
+        <ui-select formControlName="type" [options]="typeOptions" [placeholder]="null" />
+      </ui-form-field>
+      <ui-form-field label="Motivo" required class="full">
+        <ui-textarea formControlName="reason" [maxlength]="255" />
+      </ui-form-field>
+    </form>
+    <ng-container uiModalFooter>
+      <button ui-button type="button" (click)="reverseOpen.set(false)">Cancelar</button>
+      <button
+        ui-button
+        variant="primary"
+        type="submit"
+        form="reverse-form"
+        [loading]="busy() === 'reverse'"
+      >
+        Registrar reversión
+      </button>
+    </ng-container>
+  </ui-modal>
+}

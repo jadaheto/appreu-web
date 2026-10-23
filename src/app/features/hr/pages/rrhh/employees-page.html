@@ -1,0 +1,128 @@
+<div class="page-header">
+  <div>
+    <h1>Capital Humano</h1>
+    <p class="page-header__subtitle">Directorio de empleados, contratos y permisos.</p>
+  </div>
+  <a ui-button variant="primary" icon="plus" [routerLink]="[base, 'empleados', 'nuevo']">
+    Nuevo empleado
+  </a>
+</div>
+
+<app-section-nav [links]="links" ariaLabel="Secciones de Capital Humano" />
+
+<section class="grid grid--4" style="margin-bottom: var(--space-6)" aria-label="Indicadores">
+  <ui-stat-card
+    label="Total activos"
+    icon="users"
+    tone="primary"
+    [loading]="kpis.isLoading()"
+    [value]="kpiData()?.active ?? null"
+    [hint]="kpiData() ? kpiData()!.onLeave + ' en licencia' : ''"
+  />
+  <ui-stat-card
+    label="Docentes"
+    icon="academic-cap"
+    tone="success"
+    [loading]="kpis.isLoading()"
+    [value]="kpiData()?.byType?.['docente'] ?? null"
+  />
+  <ui-stat-card
+    label="Administrativos"
+    icon="briefcase"
+    tone="info"
+    [loading]="kpis.isLoading()"
+    [value]="kpiData()?.byType?.['administrativo'] ?? null"
+  />
+  <ui-stat-card
+    label="Directivos"
+    icon="identification"
+    tone="warning"
+    [loading]="kpis.isLoading()"
+    [value]="kpiData()?.byType?.['directivo'] ?? null"
+  />
+</section>
+
+<ui-filter-bar [showClear]="hasFilters()" (apply)="applyFilters()" (clear)="clearFilters()">
+  <ui-search-box
+    placeholder="Buscar por nombre, código o documento…"
+    [value]="filterForm.controls.search.value"
+    (search)="onSearch($event)"
+  />
+  <ui-select
+    [formControl]="filterForm.controls.type"
+    [options]="typeOptions"
+    placeholder="Todos los tipos"
+    ariaLabel="Tipo de empleado"
+  />
+  <ui-select
+    [formControl]="filterForm.controls.status"
+    [options]="statusOptions"
+    placeholder="Todos los estados"
+    ariaLabel="Estado"
+  />
+</ui-filter-bar>
+
+@if (result.error()) {
+  <ui-alert
+    tone="error"
+    title="No se pudo cargar el directorio"
+    style="margin-bottom: var(--space-4)"
+  >
+    {{ apiMessage(result.error()) }}
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Empleados"
+  [columns]="columns"
+  [rows]="rows()"
+  [loading]="result.isLoading()"
+  [actions]="actions"
+  rowClickable
+  emptyIcon="users"
+  emptyTitle="No hay empleados"
+  emptyMessage="Ajusta los filtros o registra un nuevo empleado."
+  (action)="onAction($event)"
+  (rowClick)="openDetail($event)"
+>
+  <ng-template uiCell="fullName" let-row>
+    <div>
+      <strong>{{ row.fullName }}</strong>
+      <div class="text-muted" style="font-size: var(--text-xs)">
+        {{ row.email || 'Sin correo' }}
+      </div>
+    </div>
+  </ng-template>
+  <ng-template uiCell="position" let-row>
+    <div>{{ row.position || '—' }}</div>
+    <div class="text-muted" style="font-size: var(--text-xs)">{{ row.department || '' }}</div>
+  </ng-template>
+  <ng-template uiCell="employeeType" let-row>
+    <ui-badge tone="primary">{{ typeLabels[row.employeeType] }}</ui-badge>
+  </ng-template>
+  <ng-template uiCell="contractType" let-row>
+    <div>{{ contractLabels[row.contractType] }}</div>
+    @if (row.hireDate) {
+      <div class="text-muted" style="font-size: var(--text-xs)">
+        Desde {{ shortDate(row.hireDate) }}
+      </div>
+    }
+  </ng-template>
+  <ng-template uiCell="status" let-row>
+    <app-hr-status-badge [status]="row.status" />
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page"
+    [pageSize]="filters().pageSize"
+    [total]="total()"
+    (pageChange)="changePage($event)"
+  />
+</ui-data-table>
+
+<app-employee-status-modal
+  [(open)]="modalOpen"
+  [employee]="selected()"
+  [mode]="modalMode()"
+  (saved)="refresh()"
+/>

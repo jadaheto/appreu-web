@@ -1,0 +1,338 @@
+<div class="page-header">
+  <div>
+    <h1>Emisor y numeración</h1>
+    <p class="page-header__subtitle">
+      Datos del RUT, software DIAN y resoluciones de numeración de facturas y notas.
+    </p>
+  </div>
+</div>
+
+@if (!canEdit()) {
+  <ui-alert class="mb" tone="info" title="Solo lectura">
+    Solo un administrador puede modificar el emisor y las numeraciones.
+  </ui-alert>
+}
+
+@if (config.error()) {
+  <ui-alert class="mb" tone="error" title="No se pudo cargar la configuración">
+    <button ui-button size="sm" variant="ghost" (click)="config.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+@if (config.isLoading() && !val(config)) {
+  <div class="center"><ui-spinner size="lg" label="Cargando configuración…" /></div>
+} @else {
+  <form [formGroup]="form" (ngSubmit)="save()" novalidate aria-label="Configuración del emisor">
+    @if (saveError()) {
+      <ui-alert
+        class="mb"
+        tone="error"
+        title="No se guardaron los cambios"
+        dismissible
+        (dismissed)="saveError.set(null)"
+        >{{ saveError() }}</ui-alert
+      >
+    }
+
+    <section class="ui-card mb" aria-labelledby="cfg-rut">
+      <h2 class="ui-card__title" id="cfg-rut">Datos del RUT</h2>
+      <div class="grid grid--3">
+        <ui-form-field class="span-2" label="Razón social" required>
+          <ui-input formControlName="businessName" />
+        </ui-form-field>
+        <ui-form-field
+          label="NIT"
+          required
+          [errorMessages]="messages"
+          [hint]="val(config)?.dv ? 'Dígito de verificación: ' + val(config)!.dv : ''"
+        >
+          <ui-input
+            formControlName="nit"
+            mono
+            inputmode="numeric"
+            [suffix]="val(config)?.dv ? '-' + val(config)!.dv : ''"
+          />
+        </ui-form-field>
+        <ui-form-field label="Tipo de persona" required>
+          <ui-select
+            formControlName="personType"
+            [options]="personTypeOptions"
+            [placeholder]="null"
+          />
+        </ui-form-field>
+        @if (personType() === '2') {
+          <ui-form-field label="Nombres">
+            <ui-input formControlName="firstName" />
+          </ui-form-field>
+          <ui-form-field label="Apellidos">
+            <ui-input formControlName="familyName" />
+          </ui-form-field>
+        }
+        <ui-form-field label="Régimen de IVA" required>
+          <ui-select formControlName="vatRegime" [options]="vatOptions()" />
+        </ui-form-field>
+      </div>
+      <fieldset class="mb-top">
+        <legend>Responsabilidades fiscales</legend>
+        <div class="checks">
+          @for (r of val(responsibilities) ?? []; track r.code) {
+            <ui-checkbox
+              [checked]="selectedResponsibilities().includes(r.code)"
+              [disabled]="!canEdit()"
+              (checkedChange)="toggleResponsibility(r.code, $event)"
+            >
+              <span class="font-mono">{{ r.code }}</span> {{ r.name }}
+            </ui-checkbox>
+          } @empty {
+            <span class="text-muted">Cargando catálogo…</span>
+          }
+        </div>
+      </fieldset>
+    </section>
+
+    <section class="ui-card mb" aria-labelledby="cfg-location">
+      <h2 class="ui-card__title" id="cfg-location">Ubicación y contacto</h2>
+      <div class="grid grid--3">
+        <ui-form-field class="span-2" label="Dirección" required>
+          <ui-input formControlName="address" autocomplete="street-address" />
+        </ui-form-field>
+        <ui-form-field label="Código postal">
+          <ui-input formControlName="postalCode" mono />
+        </ui-form-field>
+        <app-dane-location-fields
+          required
+          [departmentControl]="form.controls.departmentCode"
+          [cityControl]="form.controls.cityCode"
+        />
+        <ui-form-field label="Persona de contacto">
+          <ui-input formControlName="contactName" />
+        </ui-form-field>
+        <ui-form-field label="Teléfono">
+          <ui-input formControlName="phone" type="tel" />
+        </ui-form-field>
+        <ui-form-field label="Correo de facturación" required>
+          <ui-input formControlName="email" type="email" />
+        </ui-form-field>
+      </div>
+    </section>
+
+    <section class="ui-card mb" aria-labelledby="cfg-software">
+      <h2 class="ui-card__title" id="cfg-software">Software DIAN</h2>
+      <div class="grid grid--3">
+        <ui-form-field label="ID del software" required>
+          <ui-input formControlName="softwareId" mono />
+        </ui-form-field>
+        <ui-form-field
+          label="PIN del software"
+          [hint]="
+            val(config)?.softwarePinConfigured
+              ? 'Configurado. Déjelo vacío para conservarlo.'
+              : 'Aún no configurado.'
+          "
+        >
+          <ui-input
+            formControlName="softwarePin"
+            type="password"
+            autocomplete="new-password"
+            [placeholder]="val(config)?.softwarePinConfigured ? '•••••• (configurado)' : ''"
+          />
+        </ui-form-field>
+        <ui-form-field label="Ambiente" required>
+          <ui-select
+            formControlName="environment"
+            [options]="environmentOptions"
+            [placeholder]="null"
+          />
+        </ui-form-field>
+        <ui-form-field label="TestSetId" hint="Solo para habilitación">
+          <ui-input formControlName="testSetId" mono />
+        </ui-form-field>
+        <ui-form-field label="Nombres de archivo" required>
+          <ui-select formControlName="fileNaming" [options]="namingOptions" [placeholder]="null" />
+        </ui-form-field>
+        <ui-form-field
+          label="Código de proveedor"
+          required
+          hint="000 = software propio"
+          [errorMessages]="{ pattern: 'Debe tener 3 dígitos.' }"
+        >
+          <ui-input formControlName="providerCode" mono [maxlength]="3" />
+        </ui-form-field>
+      </div>
+      <ui-checkbox formControlName="autoInvoiceOnPayment">
+        Emitir factura electrónica automáticamente al registrar pagos en caja
+      </ui-checkbox>
+    </section>
+
+    @if (canEdit()) {
+      <div class="cluster form-actions mb">
+        <button ui-button type="submit" variant="primary" icon="check" [loading]="saving()">
+          Guardar configuración
+        </button>
+      </div>
+    }
+  </form>
+}
+
+<section class="ui-card" aria-labelledby="cfg-resolutions">
+  <div class="cluster" style="justify-content: space-between">
+    <h2 class="ui-card__title" id="cfg-resolutions">Resoluciones de numeración</h2>
+    @if (canEdit()) {
+      <button ui-button variant="secondary" size="sm" icon="plus" (click)="openRegister()">
+        Registrar numeración
+      </button>
+    }
+  </div>
+  @if (resolutions.error()) {
+    <ui-alert tone="error" title="No se pudieron cargar las numeraciones" />
+  }
+  <ui-data-table
+    caption="Resoluciones de numeración"
+    [columns]="resolutionColumns"
+    [rows]="val(resolutions) ?? []"
+    [loading]="resolutions.isLoading()"
+    [actions]="canEdit() ? resolutionActions : []"
+    emptyIcon="clipboard"
+    emptyTitle="Sin numeraciones"
+    emptyMessage="Registre la resolución de facturación y los rangos de notas."
+    (action)="onResolutionAction($event)"
+  >
+    <ng-template uiCell="environment" let-row>
+      <ui-badge [tone]="row.environment === '1' ? 'success' : 'warning'">{{
+        envLabel(row.environment)
+      }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="active" let-row>
+      <ui-badge [status]="row.active ? 'active' : 'inactive'" />
+      @if (!row.technicalKeyConfigured && row.docType === 'fv') {
+        <ui-badge tone="danger">Sin clave técnica</ui-badge>
+      }
+    </ng-template>
+  </ui-data-table>
+</section>
+
+<ui-modal
+  [open]="registerOpen()"
+  (openChange)="registerOpen.set($event)"
+  size="lg"
+  title="Registrar numeración"
+  description="La nueva numeración se activa para su tipo de documento."
+>
+  <form id="register-resolution" [formGroup]="registerForm" (ngSubmit)="register()" class="stack">
+    @if (resolutionError()) {
+      <ui-alert tone="error" title="No se registró la numeración">{{ resolutionError() }}</ui-alert>
+    }
+    <div class="grid grid--2">
+      <ui-form-field label="Tipo de documento" required>
+        <ui-select formControlName="docType" [options]="docTypeOptions" [placeholder]="null" />
+      </ui-form-field>
+      <ui-form-field label="Prefijo" required [errorMessages]="prefixMessages">
+        <ui-input formControlName="prefix" mono [maxlength]="4" placeholder="SETP" />
+      </ui-form-field>
+      <ui-form-field label="Desde" required>
+        <ui-input formControlName="rangeFrom" type="number" min="1" />
+      </ui-form-field>
+      <ui-form-field
+        label="Hasta"
+        required
+        [error]="
+          registerForm.hasError('rangeOrder') && registerForm.controls.rangeTo.touched
+            ? 'Debe ser mayor o igual que el inicio del rango.'
+            : null
+        "
+      >
+        <ui-input formControlName="rangeTo" type="number" min="1" />
+      </ui-form-field>
+      <ui-form-field
+        label="Número de resolución"
+        [required]="registerForm.controls.docType.value === 'fv'"
+        [error]="
+          registerForm.hasError('resolutionRequired') &&
+          registerForm.controls.resolutionNumber.touched
+            ? 'Obligatorio para facturas.'
+            : null
+        "
+      >
+        <ui-input formControlName="resolutionNumber" mono />
+      </ui-form-field>
+      <ui-form-field label="Ambiente" required>
+        <ui-select
+          formControlName="environment"
+          [options]="environmentOptions"
+          [placeholder]="null"
+        />
+      </ui-form-field>
+      <ui-form-field label="Vigente desde">
+        <ui-input formControlName="validFrom" type="date" />
+      </ui-form-field>
+      <ui-form-field label="Vigente hasta">
+        <ui-input formControlName="validTo" type="date" />
+      </ui-form-field>
+      <ui-form-field class="span-2" label="Clave técnica" hint="Facturas. No se vuelve a mostrar.">
+        <ui-input formControlName="technicalKey" type="password" autocomplete="off" mono />
+      </ui-form-field>
+    </div>
+  </form>
+  <div uiModalFooter class="cluster">
+    <button ui-button type="button" variant="ghost" (click)="registerOpen.set(false)">
+      Cancelar
+    </button>
+    <button
+      ui-button
+      type="submit"
+      form="register-resolution"
+      variant="primary"
+      [loading]="resolutionSaving()"
+    >
+      Registrar
+    </button>
+  </div>
+</ui-modal>
+
+<ui-modal
+  [open]="!!editing()"
+  (openChange)="!$event && editing.set(null)"
+  size="lg"
+  title="Editar numeración"
+  [description]="
+    editing() ? editing()!.prefix + ' · ' + editing()!.rangeFrom + ' – ' + editing()!.rangeTo : ''
+  "
+>
+  <form id="edit-resolution" [formGroup]="editForm" (ngSubmit)="update()" class="stack">
+    @if (resolutionError()) {
+      <ui-alert tone="error" title="No se actualizó la numeración">{{
+        resolutionError()
+      }}</ui-alert>
+    }
+    <div class="grid grid--2">
+      <ui-form-field label="Ampliar hasta">
+        <ui-input formControlName="rangeTo" type="number" min="1" />
+      </ui-form-field>
+      <ui-form-field label="Número de resolución">
+        <ui-input formControlName="resolutionNumber" mono />
+      </ui-form-field>
+      <ui-form-field label="Vigente desde">
+        <ui-input formControlName="validFrom" type="date" />
+      </ui-form-field>
+      <ui-form-field label="Vigente hasta">
+        <ui-input formControlName="validTo" type="date" />
+      </ui-form-field>
+      <ui-form-field class="span-2" label="Nueva clave técnica" hint="Vacío conserva la actual.">
+        <ui-input formControlName="technicalKey" type="password" autocomplete="off" mono />
+      </ui-form-field>
+    </div>
+    <ui-checkbox formControlName="active">Numeración activa</ui-checkbox>
+  </form>
+  <div uiModalFooter class="cluster">
+    <button ui-button type="button" variant="ghost" (click)="editing.set(null)">Cancelar</button>
+    <button
+      ui-button
+      type="submit"
+      form="edit-resolution"
+      variant="primary"
+      [loading]="resolutionSaving()"
+    >
+      Guardar
+    </button>
+  </div>
+</ui-modal>

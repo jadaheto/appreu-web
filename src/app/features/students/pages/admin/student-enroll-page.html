@@ -1,0 +1,226 @@
+<div class="page-header">
+  <div>
+    <h1>Nueva matrícula</h1>
+    <p class="page-header__subtitle">
+      Registra al estudiante, su salón y su acudiente legal.
+      @if (academicYear(); as year) {
+        Año lectivo {{ year }}.
+      }
+    </p>
+  </div>
+  <a ui-button variant="ghost" icon="arrow-left" routerLink="..">Volver al directorio</a>
+</div>
+
+@if (result(); as r) {
+  <section class="ui-card stack done">
+    <ui-alert tone="success" title="Matrícula registrada">
+      {{ r.student.fullName }} quedó matriculado con el código
+      <strong class="font-mono">{{ r.student.code }}</strong
+      >.
+      @if (r.guardianReused) {
+        Se reutilizó el acudiente ya registrado (hermanos).
+      }
+    </ui-alert>
+    <div class="cluster">
+      <a ui-button variant="primary" icon="eye" [routerLink]="['..', r.student.id]">Ver ficha</a>
+      @if (r.accounts.length) {
+        <button ui-button type="button" icon="key" (click)="credentialsOpen.set(true)">
+          Ver credenciales
+        </button>
+      }
+      <button ui-button type="button" variant="ghost" icon="plus" (click)="restart()">
+        Matricular otro estudiante
+      </button>
+    </div>
+  </section>
+  <app-credentials-dialog
+    [(open)]="credentialsOpen"
+    [accounts]="r.accounts"
+    title="Cuentas del portal creadas"
+  />
+} @else {
+  <section class="ui-card">
+    <ui-tabs
+      [tabs]="tabs"
+      [active]="step()"
+      (activeChange)="goTo($event)"
+      variant="pill"
+      ariaLabel="Pasos de la matrícula"
+    >
+      @if (serverError(); as err) {
+        <ui-alert tone="error" title="No se pudo registrar la matrícula" class="mb">{{
+          err
+        }}</ui-alert>
+      }
+      @switch (step()) {
+        @case ('estudiante') {
+          <h2 class="ui-card__title">Información personal</h2>
+          <div class="stack">
+            <app-photo-picker (fileChange)="photo.set($event)" />
+            <app-student-fields [form]="studentForm" [showScholarship]="false" />
+          </div>
+        }
+        @case ('academico') {
+          <h2 class="ui-card__title">Asignación académica</h2>
+          <div class="grid grid--3" [formGroup]="enrollmentForm">
+            <ui-form-field label="Salón / grupo" hint="Solo salones del año lectivo vigente">
+              <ui-select
+                formControlName="classroomId"
+                [options]="classroomOptions()"
+                placeholder="Sin asignar"
+              />
+            </ui-form-field>
+            <ui-form-field label="Fecha de matrícula" required>
+              <ui-input type="date" formControlName="enrollmentDate" />
+            </ui-form-field>
+            <ui-form-field label="Beca / descuento" hint="Porcentaje entre 0 y 100">
+              <ui-input
+                type="number"
+                [formControl]="studentForm.controls.scholarshipPct"
+                min="0"
+                max="100"
+                step="0.01"
+                suffix="%"
+              />
+            </ui-form-field>
+          </div>
+        }
+        @case ('acudiente') {
+          <h2 class="ui-card__title">Acudiente legal</h2>
+          <div class="cluster mb" role="group" aria-label="Origen del acudiente">
+            <button ui-chip [active]="guardianMode() === 'nuevo'" (click)="setMode('nuevo')">
+              Registrar nuevo
+            </button>
+            <button
+              ui-chip
+              [active]="guardianMode() === 'existente'"
+              (click)="setMode('existente')"
+            >
+              Acudiente existente (hermanos)
+            </button>
+            <button ui-chip [active]="guardianMode() === 'ninguno'" (click)="setMode('ninguno')">
+              Sin acudiente
+            </button>
+          </div>
+          @switch (guardianMode()) {
+            @case ('nuevo') {
+              <p class="text-muted mb">
+                Si el documento ya está registrado, la matrícula reutiliza ese acudiente.
+              </p>
+              <app-guardian-fields [form]="guardianForm" />
+            }
+            @case ('existente') {
+              <form class="lookup" (submit)="$event.preventDefault(); lookupGuardian()">
+                <ui-form-field label="Documento del acudiente" required>
+                  <ui-input [formControl]="lookupDocument" mono placeholder="Número de documento" />
+                </ui-form-field>
+                <button
+                  ui-button
+                  type="submit"
+                  icon="magnifying-glass"
+                  [loading]="lookupState() === 'loading'"
+                >
+                  Buscar
+                </button>
+              </form>
+              @if (lookupState() === 'notFound') {
+                <ui-alert tone="warning" title="No hay un acudiente con ese documento">
+                  <button ui-button type="button" size="sm" (click)="registerNewWithDocument()">
+                    Registrarlo como nuevo
+                  </button>
+                </ui-alert>
+              } @else if (lookupState() === 'error') {
+                <ui-alert tone="error"
+                  >No se pudo realizar la búsqueda. Inténtalo de nuevo.</ui-alert
+                >
+              }
+              @if (existingGuardian(); as g) {
+                <div class="found">
+                  <p>
+                    <strong>{{ g.fullName }}</strong> · {{ relationshipLabel(g.relationship) }} ·
+                    <span class="font-mono"
+                      >{{ g.documentType | uppercase }} {{ g.documentNumber }}</span
+                    >
+                  </p>
+                  <p class="text-muted">
+                    {{ g.mobile || 'Sin celular' }} · {{ g.email || 'Sin correo' }}
+                    @if (g.hasPortalAccount) {
+                      · <ui-badge tone="success">Con cuenta del portal</ui-badge>
+                    }
+                  </p>
+                  @if (g.students.length) {
+                    <p class="text-muted">Estudiantes vinculados:</p>
+                    <ul>
+                      @for (s of g.students; track s.id) {
+                        <li>
+                          {{ s.fullName }} <span class="font-mono">({{ s.code }})</span> —
+                          {{ statusLabel(s.status) }}
+                        </li>
+                      }
+                    </ul>
+                  }
+                  <ui-alert tone="success"
+                    >Este acudiente quedará vinculado al nuevo estudiante.</ui-alert
+                  >
+                </div>
+              }
+            }
+            @case ('ninguno') {
+              <ui-alert tone="info">
+                El estudiante se matriculará sin acudiente. Podrás vincularlo después desde su
+                ficha.
+              </ui-alert>
+            }
+          }
+        }
+        @case ('adicional') {
+          <h2 class="ui-card__title">Información adicional</h2>
+          <div class="stack">
+            <app-student-notes-field [form]="studentForm" />
+            <div [formGroup]="enrollmentForm">
+              <ui-checkbox formControlName="createPortalAccounts">
+                Crear las cuentas del portal del estudiante y del acudiente
+              </ui-checkbox>
+            </div>
+            <ui-alert tone="info">
+              Las contraseñas temporales se mostrarán una sola vez al terminar la matrícula.
+            </ui-alert>
+          </div>
+        }
+      }
+    </ui-tabs>
+    <div class="wizard-actions">
+      <button
+        ui-button
+        type="button"
+        icon="chevron-left"
+        [disabled]="stepIndex() === 0"
+        (click)="previous()"
+      >
+        Anterior
+      </button>
+      @if (isLast()) {
+        <button
+          ui-button
+          type="button"
+          variant="primary"
+          icon="check"
+          [loading]="saving()"
+          (click)="submit()"
+        >
+          Matricular estudiante
+        </button>
+      } @else {
+        <button
+          ui-button
+          type="button"
+          variant="primary"
+          iconRight="chevron-right"
+          (click)="next()"
+        >
+          Siguiente
+        </button>
+      }
+    </div>
+  </section>
+}

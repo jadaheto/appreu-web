@@ -1,0 +1,92 @@
+<a ui-button variant="ghost" size="sm" icon="arrow-left" routerLink="../.." class="back"
+  >Volver a Marketing IA</a
+>
+
+@if (!validType()) {
+  <section class="ui-card">
+    <ui-empty-state
+      icon="exclamation-triangle"
+      title="Generador no encontrado"
+      message="Elige uno de los generadores disponibles."
+    >
+      <a ui-button variant="primary" routerLink="../..">Ver generadores</a>
+    </ui-empty-state>
+  </section>
+} @else {
+  <div class="page-header">
+    <div>
+      <h1>{{ info()?.icon }} {{ info()?.title ?? 'Generador' }}</h1>
+      <p class="page-header__subtitle">{{ info()?.description }}</p>
+    </div>
+    <a ui-button variant="ghost" icon="clock" routerLink="../../historial">Historial</a>
+  </div>
+
+  <div class="layout">
+    <form class="ui-card sticky" [formGroup]="form" (ngSubmit)="generate()" novalidate>
+      <h2 class="ui-card__title">Instrucciones</h2>
+      <ui-form-field
+        label="Tema u objetivo específico"
+        hint="Describe el público, el tono y lo que quieres lograr (mín. 10 caracteres)."
+        required
+      >
+        <ui-textarea
+          formControlName="context"
+          [rows]="8"
+          [maxlength]="maxContext"
+          placeholder="Ej.: Campaña de matrículas 2027 para familias de primaria, tono cercano…"
+        />
+      </ui-form-field>
+      @if (error(); as e) {
+        <ui-alert
+          tone="error"
+          class="sub-alert"
+          [title]="notConfigured() ? 'Marketing IA sin configurar' : 'No se pudo generar'"
+        >
+          {{ e }}
+          @if (notConfigured() && isAdmin()) {
+            <a routerLink="/admin/configuracion" [queryParams]="{ tab: 'ai' }"
+              >Ir a Configuración → Apreu IA</a
+            >
+          }
+        </ui-alert>
+      }
+      <div class="actions">
+        <button
+          ui-button
+          type="submit"
+          variant="primary"
+          icon="cpu-chip"
+          block
+          [loading]="generating()"
+        >
+          {{ generating() ? 'Generando…' : 'Generar contenido' }}
+        </button>
+      </div>
+    </form>
+
+    <section class="ui-card result" [style.--accent]="accent()" aria-live="polite">
+      @if (result(); as r) {
+        <div class="result__head">
+          <h2 class="ui-card__title flat">Resultado generado por la IA</h2>
+          <button ui-button size="sm" icon="clipboard" (click)="copy(r.aiResponse)">Copiar</button>
+        </div>
+        <div class="ai-text" [innerHTML]="r.aiResponse | markdownLite"></div>
+        <p class="label">Datos del CRM analizados</p>
+        <div class="chips">
+          @for (c of crmEntries(r.crmData); track c.key) {
+            <span class="chip">{{ c.key }}: {{ c.value }}</span>
+          }
+        </div>
+        <p class="footnote">
+          Datos basados en el CRM de la institución · Guardado en el historial.
+        </p>
+      } @else {
+        <ui-empty-state
+          icon="cpu-chip"
+          [title]="generating() ? 'Generando contenido…' : 'Esperando instrucciones'"
+          message="Escribe el objetivo y pulsa «Generar contenido». El resultado aparecerá aquí."
+        />
+      }
+    </section>
+  </div>
+}

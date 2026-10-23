@@ -1,0 +1,161 @@
+<div class="page-header">
+  <div>
+    <h1>📌 Stickers &amp; Notas</h1>
+    <p class="page-header__subtitle">
+      @if (isAdmin()) {
+        Crea notas y avisos que los empleados verán al iniciar sesión.
+      } @else {
+        Avisos que te asignan y recordatorios propios.
+      }
+    </p>
+  </div>
+  @if (canCreate()) {
+    <button ui-button variant="primary" icon="plus" (click)="openCreate()">
+      {{ isAdmin() ? 'Nuevo sticker' : 'Nueva nota' }}
+    </button>
+  }
+</div>
+
+@if (!isAdmin() && profile.error()) {
+  <ui-alert tone="info" title="No vinculado como empleado" class="mb">
+    {{ apiMessage(profile.error()) }}
+  </ui-alert>
+}
+
+<section class="grid grid--3 mb" aria-label="Resumen">
+  <ui-stat-card
+    label="Total"
+    variant="border"
+    tone="primary"
+    [loading]="stats.isLoading()"
+    [value]="statsData()?.total ?? null"
+  />
+  <ui-stat-card
+    label="No leídos"
+    variant="border"
+    tone="warning"
+    [loading]="stats.isLoading()"
+    [value]="statsData()?.unread ?? null"
+  />
+  <ui-stat-card
+    label="Urgentes"
+    variant="border"
+    tone="danger"
+    [loading]="stats.isLoading()"
+    [value]="statsData()?.urgent ?? null"
+  />
+</section>
+
+@if (pendingList().length) {
+  <section class="ui-card tray mb" aria-labelledby="tray-title">
+    <h2 id="tray-title" class="ui-card__title">Pendientes por leer ({{ pendingList().length }})</h2>
+    <div class="board">
+      @for (s of pendingList(); track s.id) {
+        <app-sticker-card [sticker]="s" [showRecipient]="false" (markRead)="markRead($event)" />
+      }
+    </div>
+  </section>
+}
+
+<div class="toolbar">
+  <div class="cluster" role="group" aria-label="Filtrar stickers">
+    @for (c of chips; track c.id) {
+      <button ui-chip [active]="filters().filter === c.id" (click)="setFilter(c.id)">
+        {{ c.label }}
+      </button>
+    }
+  </div>
+  @if (isAdmin()) {
+    <ui-select
+      ariaLabel="Filtrar por empleado"
+      placeholder="Todos los empleados"
+      [options]="employeeList()"
+      [ngModel]="employeeFilter()"
+      (ngModelChange)="setEmployee($event)"
+    />
+  }
+</div>
+
+@if (result.error()) {
+  <ui-alert tone="error" title="No se pudieron cargar los stickers" class="mb">
+    {{ apiMessage(result.error()) }}
+  </ui-alert>
+}
+
+@if (result.isLoading() && !rows().length) {
+  <div class="ui-card" style="text-align: center"><ui-spinner size="lg" /></div>
+} @else if (!rows().length) {
+  <div class="ui-card">
+    <ui-empty-state
+      icon="tag"
+      title="No hay stickers"
+      message="No hay notas con el filtro seleccionado."
+    />
+  </div>
+} @else {
+  <div class="board" aria-live="polite">
+    @for (s of rows(); track s.id) {
+      <app-sticker-card
+        [sticker]="s"
+        [showRecipient]="isAdmin() || s.employeeId !== myEmployeeId()"
+        [canMarkRead]="canMarkRead(s)"
+        [canDelete]="canDelete(s)"
+        (markRead)="markRead($event)"
+        (remove)="remove($event)"
+      />
+    }
+  </div>
+  <div style="margin-top: var(--space-4)">
+    <ui-pagination
+      [page]="filters().page"
+      [pageSize]="filters().pageSize"
+      [pageSizeOptions]="[24, 48, 96]"
+      [total]="total()"
+      (pageChange)="changePage($event)"
+    />
+  </div>
+}
+
+<ui-modal [(open)]="createOpen" [title]="isAdmin() ? '📝 Nuevo sticker' : '📝 Nueva nota'">
+  <form id="sticker-form" class="stack" [formGroup]="form" (ngSubmit)="create()" novalidate>
+    @if (createError()) {
+      <ui-alert tone="error">{{ createError() }}</ui-alert>
+    }
+    @if (isAdmin()) {
+      <ui-form-field label="Empleado" required>
+        <ui-select formControlName="employeeId" [options]="employeeList()" />
+      </ui-form-field>
+    }
+    <ui-form-field label="Título" required>
+      <ui-input
+        formControlName="title"
+        [maxlength]="150"
+        placeholder="Ej. Entregar informe de notas"
+      />
+    </ui-form-field>
+    <ui-form-field label="Contenido">
+      <ui-textarea formControlName="content" [rows]="3" [maxlength]="2000" />
+    </ui-form-field>
+    <div class="grid grid--2">
+      <ui-form-field label="Color">
+        <ui-select formControlName="color" [options]="colorOptions" [placeholder]="null" />
+      </ui-form-field>
+      <ui-form-field label="Prioridad">
+        <ui-select formControlName="priority" [options]="priorityOptions" [placeholder]="null" />
+      </ui-form-field>
+    </div>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="createOpen.set(false)">Cancelar</button>
+    <button
+      ui-button
+      type="submit"
+      form="sticker-form"
+      variant="primary"
+      icon="tag"
+      [loading]="creating()"
+    >
+      {{ isAdmin() ? 'Crear sticker' : 'Crear nota' }}
+    </button>
+  </ng-container>
+</ui-modal>

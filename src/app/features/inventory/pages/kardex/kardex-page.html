@@ -1,0 +1,99 @@
+<div class="page-header">
+  <div>
+    <a [routerLink]="base" class="muted">← Volver al inventario</a>
+    <h1>Kárdex{{ data() ? ': ' + data()!.name : '' }}</h1>
+    @if (data(); as it) {
+      <p class="page-header__subtitle">
+        <span class="mono">{{ it.sku }}</span> · {{ it.categoryName ?? 'Sin categoría' }}
+        @if (it.location) {
+          · {{ it.location }}
+        }
+      </p>
+    }
+  </div>
+  @if (data()?.isActive) {
+    <div class="actions-row">
+      <button ui-button icon="pencil" (click)="editOpen.set(true)">Editar</button>
+      <button ui-button icon="arrow-down" (click)="openMove('salida')">Salida</button>
+      <button ui-button icon="calculator" (click)="openMove('ajuste')">Ajuste</button>
+      <button ui-button variant="primary" icon="arrow-up" (click)="openMove('entrada')">
+        Entrada
+      </button>
+    </div>
+  }
+</div>
+
+@if (item.isLoading() && !data()) {
+  <div class="ui-card" style="display: grid; place-items: center"><ui-spinner size="lg" /></div>
+} @else if (item.error()) {
+  <ui-alert tone="error" title="No se pudo cargar el ítem">{{ item.error()?.message }}</ui-alert>
+} @else if (data(); as it) {
+  @if (!it.isActive) {
+    <ui-alert tone="warning" class="mb"
+      >Este ítem está desactivado; su kárdex se conserva como consulta.</ui-alert
+    >
+  }
+  <section class="grid grid--4 mb" aria-label="Resumen del ítem">
+    <ui-stat-card
+      label="Stock actual"
+      icon="cube"
+      [tone]="it.stockStatus === 'ok' ? 'success' : it.stockStatus === 'low' ? 'warning' : 'danger'"
+      [value]="it.stock + ' ' + it.unit"
+      [hint]="statusLabels[it.stockStatus] + ' · mínimo ' + it.minStock"
+    />
+    <ui-stat-card label="Costo promedio" icon="banknotes" tone="info" [value]="cop(it.unitCost)" />
+    <ui-stat-card label="Precio de venta" icon="tag" tone="neutral" [value]="cop(it.salePrice)" />
+    <ui-stat-card
+      label="Valor en stock"
+      icon="chart-bar"
+      tone="primary"
+      [value]="cop(it.stockValue)"
+    />
+  </section>
+
+  <ui-data-table
+    caption="Movimientos de stock"
+    [columns]="columns"
+    [rows]="page()?.items ?? []"
+    [loading]="movements.isLoading()"
+    emptyTitle="Sin movimientos"
+    emptyIcon="clipboard"
+  >
+    <ng-template uiCell="type" let-row>
+      <ui-badge [tone]="movementTones[$any(row).type]">{{
+        movementLabels[$any(row).type]
+      }}</ui-badge>
+    </ng-template>
+    <ng-template uiCell="quantity" let-row>
+      <span class="stock" [class.ok]="row.quantity > 0" [class.out]="row.quantity < 0">
+        {{ row.quantity > 0 ? '+' : '' }}{{ row.quantity }}
+      </span>
+    </ng-template>
+    <ng-template uiCell="reason" let-row>
+      {{ row.reason ?? '—' }}
+      @if (row.referenceType) {
+        <br /><span class="muted">{{ row.referenceType }} #{{ row.referenceId }}</span>
+      }
+    </ng-template>
+    <ui-pagination
+      uiTableFooter
+      [page]="paging().page"
+      [pageSize]="paging().pageSize"
+      [total]="page()?.total ?? 0"
+      (pageChange)="onPage($event)"
+    />
+  </ui-data-table>
+
+  <app-item-form-dialog
+    [(open)]="editOpen"
+    [item]="it"
+    [categories]="categoryList()"
+    (saved)="refresh()"
+  />
+  <app-stock-movement-dialog
+    [(open)]="moveOpen"
+    [item]="it"
+    [initialType]="moveType()"
+    (saved)="refresh()"
+  />
+}

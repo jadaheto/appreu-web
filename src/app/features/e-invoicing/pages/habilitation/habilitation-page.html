@@ -1,0 +1,153 @@
+<div class="page-header">
+  <div>
+    <h1>Habilitación DIAN</h1>
+    <p class="page-header__subtitle">
+      Set de pruebas para habilitar el software como facturador electrónico.
+    </p>
+  </div>
+  @if (val(progress); as p) {
+    <div class="cluster">
+      <ui-badge [tone]="p.environment === '1' ? 'success' : 'warning'">{{
+        environmentLabel()
+      }}</ui-badge>
+      <span class="text-muted">TestSetId:</span>
+      <span class="font-mono">{{ p.testSetId ?? 'sin configurar' }}</span>
+    </div>
+  }
+</div>
+
+@if (val(progress) && val(progress)!.environment === '1') {
+  <ui-alert class="mb" tone="warning" title="Ambiente de producción">
+    El set de pruebas solo debe ejecutarse en el ambiente de habilitación.
+  </ui-alert>
+}
+@if (val(progress) && !val(progress)!.testSetId) {
+  <ui-alert class="mb" tone="info" title="Sin TestSetId">
+    Configure el TestSetId asignado por la DIAN en «Emisor y numeración»; sin él se usa
+    SendBillSync.
+  </ui-alert>
+}
+
+<section class="mb" aria-labelledby="hab-progress">
+  <div class="cluster" style="justify-content: space-between; margin-bottom: var(--space-3)">
+    <h2 id="hab-progress" class="ui-card__title" style="border: 0; margin: 0">
+      Avance del set de pruebas
+    </h2>
+    <div class="cluster">
+      @if (polling()) {
+        <span class="live" role="status"><ui-spinner size="sm" /> Actualizando cada 3 s…</span>
+        <button ui-button size="sm" variant="ghost" (click)="stopPolling()">
+          Detener seguimiento
+        </button>
+      } @else {
+        <button
+          ui-button
+          size="sm"
+          variant="ghost"
+          icon="arrows-up-down"
+          [loading]="progress.isLoading()"
+          (click)="progress.reload()"
+        >
+          Actualizar
+        </button>
+      }
+    </div>
+  </div>
+  @if (progress.error()) {
+    <ui-alert tone="error" title="No se pudo consultar el avance" />
+  }
+  <div class="grid grid--3" aria-live="polite">
+    @for (c of cards(); track c.type) {
+      <article class="ui-card type-card">
+        <h3>{{ c.label }}</h3>
+        <ui-progress-bar
+          mode="auto"
+          [value]="c.percent"
+          [label]="c.label + ': ' + c.percent + ' % aceptados'"
+        />
+        <dl class="counts">
+          <dt>Enviados</dt>
+          <dd>{{ c.sent }}</dd>
+          <dt>Aceptados</dt>
+          <dd>{{ c.accepted }}</dd>
+          <dt>Rechazados</dt>
+          <dd>{{ c.rejected }}</dd>
+          <dt>En proceso</dt>
+          <dd>{{ c.inFlight }}</dd>
+          <dt>Error de envío</dt>
+          <dd>{{ c.errors }}</dd>
+        </dl>
+      </article>
+    }
+  </div>
+</section>
+
+@if (!isAdmin()) {
+  <ui-alert tone="info" title="Solo lectura">
+    Ejecutar el set de pruebas y reiniciar la numeración está reservado a administradores.
+  </ui-alert>
+} @else {
+  <div class="grid grid--2">
+    <section class="ui-card" aria-labelledby="hab-run">
+      <h2 class="ui-card__title" id="hab-run">Ejecutar set de pruebas</h2>
+      <form [formGroup]="planForm" (ngSubmit)="run()" class="stack">
+        @if (runError()) {
+          <ui-alert
+            tone="error"
+            title="No se inició el set"
+            dismissible
+            (dismissed)="runError.set(null)"
+            >{{ runError() }}</ui-alert
+          >
+        }
+        <div class="grid grid--3">
+          <ui-form-field label="Facturas" required>
+            <ui-input formControlName="invoices" type="number" min="0" max="100" />
+          </ui-form-field>
+          <ui-form-field label="Notas crédito" required>
+            <ui-input formControlName="creditNotes" type="number" min="0" max="100" />
+          </ui-form-field>
+          <ui-form-field label="Notas débito" required>
+            <ui-input formControlName="debitNotes" type="number" min="0" max="100" />
+          </ui-form-field>
+        </div>
+        <div>
+          <button
+            ui-button
+            type="submit"
+            variant="primary"
+            icon="shield-check"
+            [loading]="running()"
+            [disabled]="polling()"
+          >
+            Ejecutar en segundo plano
+          </button>
+        </div>
+      </form>
+    </section>
+
+    <section class="ui-card" aria-labelledby="hab-reset">
+      <h2 class="ui-card__title" id="hab-reset">Reiniciar numeración de habilitación</h2>
+      <p class="text-muted" style="margin-bottom: var(--space-3)">
+        Útil cuando la DIAN pide repetir el set. No elimina documentos emitidos.
+      </p>
+      <fieldset style="border: 0; padding: 0; margin: 0">
+        <legend class="sr-only">Tipos de documento a reiniciar</legend>
+        <div class="checks">
+          <ui-checkbox [checked]="resetTypes().fv" (checkedChange)="toggleReset('fv', $event)">
+            {{ typeLabels.fv }}
+          </ui-checkbox>
+          <ui-checkbox [checked]="resetTypes().nc" (checkedChange)="toggleReset('nc', $event)">
+            {{ typeLabels.nc }}
+          </ui-checkbox>
+          <ui-checkbox [checked]="resetTypes().nd" (checkedChange)="toggleReset('nd', $event)">
+            {{ typeLabels.nd }}
+          </ui-checkbox>
+        </div>
+      </fieldset>
+      <button ui-button variant="danger" icon="trash" [loading]="resetting()" (click)="reset()">
+        Reiniciar numeración
+      </button>
+    </section>
+  </div>
+}

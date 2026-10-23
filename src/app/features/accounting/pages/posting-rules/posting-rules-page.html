@@ -1,0 +1,114 @@
+<div class="page-header">
+  <div>
+    <h1>Contabilización automática</h1>
+    <p class="page-header__subtitle">
+      Cuentas que usan los asientos generados por pagos, gastos y nómina
+    </p>
+  </div>
+</div>
+
+<ui-alert tone="info" class="mb" title="¿Cómo se elige la cuenta?">
+  Para cada evento se busca primero la clave más específica (por ejemplo, el método de pago
+  <code>payment.debit.method.nequi</code>) y, si no existe, la clave por defecto
+  (<code>payment.debit.default</code>). Si ninguna está parametrizada, el evento no se contabiliza y
+  queda registrado en el log para revisión.
+</ui-alert>
+
+@if (data.error()) {
+  <ui-alert tone="error" class="mb" title="No se pudo cargar la parametrización">
+    <button ui-button size="sm" variant="ghost" (click)="data.reload()">Reintentar</button>
+  </ui-alert>
+}
+
+@for (group of groups(); track group.id) {
+  <section class="ui-card event" [attr.aria-labelledby]="'ev-' + group.id">
+    <h2 class="ui-card__title" [id]="'ev-' + group.id">{{ group.title }}</h2>
+    <p class="explanation">{{ group.explanation }}</p>
+    @for (slot of group.slots; track slot.example) {
+      <div class="slot">
+        <div>
+          <p class="slot-title">{{ slot.description }}</p>
+          <p class="slot-key">{{ slot.prefix ? slot.prefix + '…' : slot.example }}</p>
+        </div>
+        <div class="mapped">
+          @for (rule of slot.rules; track rule.key) {
+            <button type="button" class="linklike" (click)="openSlot(slot, rule)">
+              @if (slot.prefix) {
+                <span class="mono">{{ rule.key.slice(slot.prefix.length) }}</span> →
+              }
+              {{ rule.accountCode }} — {{ rule.accountName }}
+            </button>
+          } @empty {
+            <ui-badge [tone]="slot.prefix ? 'neutral' : 'warning'">
+              {{ slot.prefix ? 'Opcional · usa la clave por defecto' : 'Sin parametrizar' }}
+            </ui-badge>
+          }
+        </div>
+        <div>
+          <button
+            ui-button
+            size="sm"
+            [icon]="slot.prefix ? 'plus' : 'pencil'"
+            (click)="openSlot(slot, slot.prefix ? undefined : slot.rules[0])"
+          >
+            {{ slot.prefix ? 'Agregar' : slot.rules.length ? 'Cambiar' : 'Asignar' }}
+          </button>
+        </div>
+      </div>
+    }
+  </section>
+}
+
+<section class="ui-card">
+  <h2 class="ui-card__title">Todas las claves configuradas</h2>
+  <ui-data-table
+    caption="Claves de contabilización configuradas"
+    [columns]="columns"
+    [rows]="rules()"
+    [actions]="actions"
+    trackBy="key"
+    [loading]="data.isLoading()"
+    emptyTitle="Aún no hay cuentas parametrizadas"
+    (action)="onAction($event)"
+  />
+</section>
+
+<ui-modal
+  [(open)]="modalOpen"
+  title="Parametrizar cuenta"
+  [description]="slot()?.description ?? ''"
+>
+  <form id="rule-form" class="form-grid" [formGroup]="form" (ngSubmit)="save()" novalidate>
+    @if (serverError()) {
+      <ui-alert tone="error" class="full">{{ serverError() }}</ui-alert>
+    }
+    @if (slot()?.prefix; as prefix) {
+      <ui-form-field
+        label="Valor de la clave"
+        required
+        class="full"
+        [hint]="'Ej. ' + slot()!.example.slice(prefix.length) + ' → ' + slot()!.example"
+        [errorMessages]="suffixErrors"
+      >
+        <ui-input formControlName="suffix" mono [prefix]="prefix" />
+      </ui-form-field>
+    } @else {
+      <ui-form-field label="Clave" class="full">
+        <ui-input [value]="slot()?.example ?? ''" mono readonly ariaLabel="Clave" />
+      </ui-form-field>
+    }
+    <ui-form-field label="Cuenta de movimiento" required class="full">
+      <ui-select
+        formControlName="accountId"
+        [options]="accountOptions()"
+        placeholder="Seleccione cuenta…"
+      />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="modalOpen.set(false)">Cancelar</button>
+    <button ui-button variant="primary" type="submit" form="rule-form" [loading]="saving()">
+      Guardar
+    </button>
+  </ng-container>
+</ui-modal>

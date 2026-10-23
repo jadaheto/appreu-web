@@ -1,0 +1,148 @@
+@if (loadError()) {
+  <div class="page-header"><h1>Mis datos</h1></div>
+  <ui-alert tone="warning" title="No vinculado como empleado">{{ loadError() }}</ui-alert>
+} @else if (!data()) {
+  <div class="ui-card" style="text-align: center"><ui-spinner size="lg" /></div>
+} @else {
+  @let e = data()!;
+  <header class="hero">
+    <ui-avatar [name]="e.fullName" size="lg" />
+    <div>
+      <h1>{{ e.fullName }}</h1>
+      <p class="text-muted">
+        <span class="font-mono">{{ e.code }}</span> · {{ e.position || 'Sin cargo' }}
+        @if (e.department) {
+          / {{ e.department }}
+        }
+      </p>
+    </div>
+    <app-hr-status-badge [status]="e.status" />
+  </header>
+
+  <div class="stack">
+    <form class="ui-card" [formGroup]="form" (ngSubmit)="save()" novalidate>
+      <h2 class="ui-card__title">Datos de contacto</h2>
+      @if (serverError()) {
+        <ui-alert tone="error" style="display: block; margin-bottom: var(--space-4)">{{
+          serverError()
+        }}</ui-alert>
+      }
+      <div class="grid grid--2">
+        <ui-form-field label="Celular">
+          <ui-input type="tel" formControlName="phone" autocomplete="tel" [maxlength]="20" />
+        </ui-form-field>
+        <ui-form-field label="Correo electrónico">
+          <ui-input type="email" formControlName="email" autocomplete="email" [maxlength]="150" />
+        </ui-form-field>
+        <ui-form-field label="Dirección" class="full">
+          <ui-textarea formControlName="address" [rows]="2" [maxlength]="500" />
+        </ui-form-field>
+      </div>
+      <div class="actions">
+        <button
+          ui-button
+          type="submit"
+          variant="primary"
+          icon="check"
+          [loading]="saving()"
+          [disabled]="form.pristine"
+        >
+          Guardar contacto
+        </button>
+      </div>
+    </form>
+
+    <section class="ui-card">
+      <h2 class="ui-card__title">Datos básicos</h2>
+      <dl class="info">
+        <div>
+          <dt>Documento</dt>
+          <dd>{{ docLabels[e.documentType] }} {{ e.documentNumber }}</dd>
+        </div>
+        <div>
+          <dt>Fecha de nacimiento</dt>
+          <dd>{{ shortDate(e.birthDate) }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="ui-card">
+      <h2 class="ui-card__title">Mi puesto</h2>
+      <dl class="info">
+        <div>
+          <dt>Cargo</dt>
+          <dd>{{ e.position || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Departamento</dt>
+          <dd>{{ e.department || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Tipo</dt>
+          <dd>{{ typeLabels[e.employeeType] }}</dd>
+        </div>
+        <div>
+          <dt>Contrato</dt>
+          <dd>{{ contractLabels[e.contractType] }}</dd>
+        </div>
+        <div>
+          <dt>Fecha de ingreso</dt>
+          <dd>{{ shortDate(e.hireDate) }}</dd>
+        </div>
+        <div>
+          <dt>Salario base</dt>
+          <dd class="font-mono">{{ e.baseSalary | cop }}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="ui-card">
+      <h2 class="ui-card__title">Seguridad social y cuenta bancaria</h2>
+      <dl class="info">
+        <div>
+          <dt>EPS</dt>
+          <dd>{{ e.socialSecurity.eps || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Fondo de pensiones</dt>
+          <dd>{{ e.socialSecurity.pensionFund || '—' }}</dd>
+        </div>
+        <div>
+          <dt>ARL</dt>
+          <dd>{{ e.socialSecurity.arl || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Banco</dt>
+          <dd>{{ e.bankAccount.bankName || '—' }}</dd>
+        </div>
+        <div>
+          <dt>Cuenta</dt>
+          <dd class="font-mono">
+            {{ e.bankAccount.number || '—' }} ({{ accountLabels[e.bankAccount.type] }})
+          </dd>
+        </div>
+      </dl>
+    </section>
+
+    <section class="ui-card">
+      <h2 class="ui-card__title">Deducciones fijas</h2>
+      <dl class="info">
+        <div>
+          <dt>Libranza</dt>
+          <dd class="font-mono">{{ e.recurringDeductions.libranza | cop }}</dd>
+        </div>
+        <div>
+          <dt>Cuota sindical</dt>
+          <dd class="font-mono">{{ e.recurringDeductions.sindicato | cop }}</dd>
+        </div>
+        <div>
+          <dt>Embargo</dt>
+          <dd class="font-mono">{{ e.recurringDeductions.embargo | cop }}</dd>
+        </div>
+      </dl>
+      <p class="text-muted" style="margin-top: var(--space-4); font-size: var(--text-sm)">
+        La cuenta bancaria y las deducciones solo las modifica RR. HH.
+      </p>
+    </section>
+  </div>
+}

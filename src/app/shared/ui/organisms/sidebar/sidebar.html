@@ -1,0 +1,69 @@
+<div class="bar" aria-hidden="true"></div>
+<div class="brand">
+  @if (brand().logoUrl) {
+    <img [src]="brand().logoUrl" [alt]="brand().name" [style.height.px]="brand().logoSize ?? 40" />
+  } @else {
+    <span class="logo" aria-hidden="true"><ui-icon name="academic-cap" [size]="20" /></span>
+    <span class="name text-gradient">{{ brand().name }}</span>
+  }
+  <button type="button" class="close" aria-label="Cerrar menú" (click)="closeRequest.emit()">
+    <ui-icon name="x-mark" [size]="20" />
+  </button>
+</div>
+@if (brand().subtitle || tag()) {
+  <div class="meta">
+    @if (brand().subtitle) {
+      <span class="subtitle">{{ brand().subtitle }}</span>
+    }
+    @if (tag()) {
+      <span class="tag">{{ tag() }}</span>
+    }
+  </div>
+}
+<nav aria-label="Menú principal">
+  @for (section of sections(); track $index) {
+    @if (section.title) {
+      <p class="section">{{ section.title }}</p>
+    }
+    <ul>
+      @for (item of section.items; track item.key) {
+        <li>
+          <a
+            class="link"
+            [routerLink]="item.route"
+            routerLinkActive="active"
+            ariaCurrentWhenActive="page"
+            [routerLinkActiveOptions]="{ exact: !!item.exact }"
+            (click)="navigate.emit(item.route)"
+          >
+            <ui-icon [name]="item.icon" [size]="20" />
+            <span class="label">{{ item.label }}</span>
+            @if (item.badge) {
+              <span class="badge">{{ item.badge }}</span>
+            }
+          </a>
+        </li>
+      }
+    </ul>
+  }
+</nav>
+@if (user(); as u) {
+  <div class="user">
+    <ui-avatar [name]="u.name" [src]="u.avatar ?? null" size="sm" />
+    <div class="who">
+      <p class="uname">{{ u.name }}</p>
+      @if (u.roleLabel) {
+        <p class="role">{{ u.roleLabel }}</p>
+      }
+    </div>
+    <button
+      type="button"
+      class="logout"
+      aria-label="Cerrar sesión"
+      title="Cerrar sesión"
+      (click)="logout.emit()"
+    >
+      <ui-icon name="logout" [size]="20" />
+    </button>
+  </div>
+}

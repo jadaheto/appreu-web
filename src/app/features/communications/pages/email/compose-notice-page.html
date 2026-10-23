@@ -1,0 +1,126 @@
+<a ui-button variant="ghost" size="sm" icon="arrow-left" routerLink=".." class="back"
+  >Volver a correos</a
+>
+<div class="page-header">
+  <div>
+    <h1>Redactar aviso</h1>
+    <p class="page-header__subtitle">
+      Cada destinatario recibe un correo individual con la plantilla institucional.
+    </p>
+  </div>
+</div>
+
+@if (result(); as summary) {
+  <app-delivery-summary class="mb" label="Envío del aviso" [summary]="summary" />
+}
+
+<form [formGroup]="form" (ngSubmit)="send()" novalidate class="stack">
+  <section class="ui-card">
+    <h2 class="ui-card__title">Destinatarios</h2>
+    <fieldset class="radios" role="radiogroup">
+      <legend>¿A quién se envía?</legend>
+      @for (a of audiences; track a.value) {
+        <label class="radio">
+          <input type="radio" formControlName="audience" [value]="a.value" />
+          {{ a.label }}
+        </label>
+      }
+    </fieldset>
+
+    @switch (audience()) {
+      @case ('by_grade') {
+        <div class="form-grid form-grid--2 sub">
+          @if (gradesUnavailable()) {
+            <ui-form-field
+              label="Id del grado"
+              hint="No tienes acceso al catálogo de grados; ingresa el id."
+              required
+            >
+              <ui-input type="number" [min]="1" formControlName="gradeId" />
+            </ui-form-field>
+          } @else {
+            <ui-form-field label="Grado" required>
+              <ui-select
+                [options]="gradeOptions()"
+                [placeholder]="catalogsLoading() ? 'Cargando grados…' : 'Seleccione el grado'"
+                formControlName="gradeId"
+              />
+            </ui-form-field>
+          }
+        </div>
+      }
+      @case ('by_classroom') {
+        <div class="form-grid form-grid--2 sub">
+          @if (classroomsUnavailable()) {
+            <ui-form-field
+              label="Id del salón"
+              hint="No tienes acceso al catálogo de salones; ingresa el id."
+              required
+            >
+              <ui-input type="number" [min]="1" formControlName="classroomId" />
+            </ui-form-field>
+          } @else {
+            <ui-form-field label="Salón" required>
+              <ui-select
+                [options]="classroomOptions()"
+                [placeholder]="catalogsLoading() ? 'Cargando salones…' : 'Seleccione el salón'"
+                formControlName="classroomId"
+              />
+            </ui-form-field>
+          }
+        </div>
+      }
+      @case ('manual') {
+        <ui-form-field
+          class="sub"
+          label="Correos"
+          hint="Separados por coma o salto de línea (máx. 500)."
+          [errorMessages]="manualMessages"
+          required
+        >
+          <ui-textarea
+            [rows]="3"
+            placeholder="acudiente1@correo.com, acudiente2@correo.com"
+            formControlName="manualEmails"
+          />
+        </ui-form-field>
+      }
+      @case ('all_parents') {
+        <p class="muted-note sub">
+          Acudientes principales de los estudiantes activos con correo registrado.
+        </p>
+      }
+      @case ('all_employees') {
+        <p class="muted-note sub">Empleados activos con correo registrado.</p>
+      }
+    }
+  </section>
+
+  <section class="ui-card">
+    <h2 class="ui-card__title">Mensaje</h2>
+    <div class="stack">
+      <ui-form-field label="Asunto" required>
+        <ui-input
+          formControlName="subject"
+          [maxlength]="255"
+          placeholder="Ej.: Reunión de padres de familia"
+        />
+      </ui-form-field>
+      <ui-form-field label="Contenido" [errorMessages]="bodyMessages" required>
+        <ui-rich-text-editor formControlName="bodyHtml" ariaLabel="Contenido del aviso" />
+      </ui-form-field>
+    </div>
+  </section>
+
+  <section class="ui-card">
+    <h2 class="ui-card__title">Adjuntos</h2>
+    <ui-file-picker [rules]="fileRules" [(files)]="attachments" [disabled]="sending()" />
+  </section>
+
+  <div class="actions-row">
+    <a ui-button variant="ghost" routerLink="..">Cancelar</a>
+    <button ui-button type="submit" variant="primary" icon="envelope" [loading]="sending()">
+      Enviar aviso
+    </button>
+  </div>
+</form>

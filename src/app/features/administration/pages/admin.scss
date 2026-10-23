@@ -1,0 +1,107 @@
+// Utilidades de maquetación compartidas por las páginas de administración.
+.mb {
+  margin-bottom: var(--space-6);
+}
+.kpis {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fit, minmax(10rem, 1fr));
+}
+.flush {
+  padding: 0;
+  overflow: hidden;
+}
+.user {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.who {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.who strong {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.who span {
+  font-size: var(--text-xs);
+}
+.muted-note {
+  font-size: var(--text-xs);
+  color: var(--color-text-subtle);
+}
+:host ::ng-deep tr.is-muted td {
+  opacity: 0.55;
+}
+.secret {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px dashed var(--color-primary);
+  border-radius: var(--radius-md);
+  background: var(--color-primary-soft);
+}
+.secret code {
+  font-size: var(--text-lg, 1.125rem);
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  color: var(--color-primary);
+  user-select: all;
+  word-break: break-all;
+}
+.path {
+  font-size: var(--text-xs);
+  word-break: break-all;
+}
+.form-grid {
+  display: grid;
+  gap: var(--space-4);
+  grid-template-columns: 1fr;
+}
+@media (min-width: 768px) {
+  .form-grid--2 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .form-grid--3 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .span-2 {
+    grid-column: span 2;
+  }
+  .span-all {
+    grid-column: 1 / -1;
+  }
+}
+.actions-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  margin-top: var(--space-5);
+}
+:host ::ng-deep tr.is-denied td:first-child {
+  box-shadow: inset 3px 0 0 var(--color-danger);
+}
+.link-btn {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--color-text-strong);
+  text-align: start;
+  cursor: pointer;
+}
+.link-btn:hover,
+.link-btn:focus-visible {
+  color: var(--color-primary);
+  text-decoration: underline;
+}
+.danger {
+  color: var(--color-danger);
+}

@@ -1,0 +1,173 @@
+// =============================================================================
+// Tokens de diseño (CSS custom properties). Reproducen la identidad del legacy:
+// primario indigo #4f46e5 → #7981f5 (135°), texto #47557c, fondo #f8fafc,
+// Plus Jakarta Sans + Space Mono. El branding del colegio escribe --brand-primary,
+// --brand-header-bg y --brand-header-bar en <html> (BrandingService); los tokens
+// deciden cómo usarlos según el tema (el oscuro conserva sus superficies).
+// =============================================================================
+
+@mixin light-tokens {
+  color-scheme: light;
+
+  // Marca (sobrescribible por BrandingService)
+  --color-primary: var(--brand-primary, #4f46e5);
+  --color-primary-light: color-mix(in srgb, var(--color-primary) 70%, white);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 10%, transparent);
+  --color-primary-ring: color-mix(in srgb, var(--color-primary) 15%, transparent);
+  --color-on-primary: #ffffff;
+  --color-header-bg: var(--brand-header-bg, #ffffff);
+  --color-header-bar: var(--brand-header-bar, var(--color-primary));
+  --gradient-primary: linear-gradient(135deg, var(--color-primary), var(--color-primary-light));
+
+  // Superficies y texto
+  --color-bg: #f8fafc;
+  --color-surface: #ffffff;
+  --color-surface-2: #f8fafc;
+  --color-surface-hover: #f8faff;
+  --color-border: #e2e8f0;
+  --color-border-soft: #f1f5f9;
+  --color-text: #47557c;
+  --color-text-strong: #1e293b;
+  --color-text-muted: #64748b;
+  --color-text-subtle: #94a3b8;
+  --color-overlay: rgb(100 116 139 / 0.75);
+
+  // Semánticos (fondo / borde / texto)
+  --color-success: #15803d;
+  --color-success-bg: #f0fdf4;
+  --color-success-border: #bbf7d0;
+  --color-danger: #b91c1c;
+  --color-danger-bg: #fef2f2;
+  --color-danger-border: #fecaca;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-info: #1d4ed8;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+  --color-neutral: #475569;
+  --color-neutral-bg: #f1f5f9;
+  --color-neutral-border: #e2e8f0;
+
+  // Series de gráficas (paleta categórica validada, orden fijo)
+  --series-1: #2a78d6;
+  --series-2: #eb6834;
+  --series-3: #1baf7a;
+  --series-4: #eda100;
+  --series-5: #e87ba4;
+  --series-6: #008300;
+  --series-7: #6250d6;
+  --series-8: #e34948;
+  --chart-grid: #e2e8f0;
+  --chart-axis: #94a3b8;
+}
+
+:root {
+  @include light-tokens;
+
+  // Tipografía
+  --font-sans: 'Plus Jakarta Sans', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'Space Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+
+  // Espaciado, radios, sombras
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --radius-sm: 0.5rem;
+  --radius-md: 0.75rem;
+  --radius-lg: 1rem;
+  --radius-xl: 1.5rem;
+  --radius-full: 9999px;
+  --shadow-card: 0 1px 6px rgb(71 85 124 / 0.07);
+  --shadow-lg: 0 10px 30px rgb(15 23 42 / 0.15);
+  --shadow-primary: 0 1px 4px color-mix(in srgb, var(--color-primary) 25%, transparent);
+
+  // Layout
+  --sidebar-width: 16rem;
+  --topbar-height: 4rem;
+  --z-sidebar: 40;
+  --z-overlay: 50;
+  --z-modal: 60;
+  --z-toast: 70;
+}
+
+@mixin dark-tokens {
+  color-scheme: dark;
+  // El primario del colegio se aclara un poco para que se lea sobre fondos oscuros
+  // (enlaces, ítem activo del menú); el fondo de la cabecera ignora la marca.
+  --color-primary: color-mix(in oklab, var(--brand-primary, #4f46e5) 82%, white);
+  --color-primary-light: color-mix(in srgb, var(--color-primary) 65%, white);
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 22%, transparent);
+  --color-primary-ring: color-mix(in srgb, var(--color-primary) 35%, transparent);
+  --color-header-bg: #111827;
+  --color-bg: #0b1120;
+  --color-surface: #111827;
+  --color-surface-2: #1a2333;
+  --color-surface-hover: #1e293b;
+  --color-border: #334155;
+  --color-border-soft: #1e293b;
+  --color-text: #cbd5e1;
+  --color-text-strong: #f1f5f9;
+  --color-text-muted: #94a3b8;
+  --color-text-subtle: #64748b;
+  --color-overlay: rgb(2 6 23 / 0.75);
+
+  --color-success: #4ade80;
+  --color-success-bg: rgb(22 101 52 / 0.25);
+  --color-success-border: rgb(74 222 128 / 0.35);
+  --color-danger: #f87171;
+  --color-danger-bg: rgb(153 27 27 / 0.25);
+  --color-danger-border: rgb(248 113 113 / 0.35);
+  --color-warning: #fbbf24;
+  --color-warning-bg: rgb(146 64 14 / 0.25);
+  --color-warning-border: rgb(251 191 36 / 0.35);
+  --color-info: #60a5fa;
+  --color-info-bg: rgb(30 64 175 / 0.25);
+  --color-info-border: rgb(96 165 250 / 0.35);
+  --color-neutral: #cbd5e1;
+  --color-neutral-bg: #1e293b;
+  --color-neutral-border: #334155;
+
+  --series-1: #3987e5;
+  --series-2: #d95926;
+  --series-3: #199e70;
+  --series-4: #c98500;
+  --series-5: #d55181;
+  --series-6: #008300;
+  --series-7: #9085e9;
+  --series-8: #e66767;
+  --chart-grid: #1e293b;
+  --chart-axis: #64748b;
+
+  --shadow-card: 0 1px 6px rgb(0 0 0 / 0.35);
+  --shadow-lg: 0 10px 30px rgb(0 0 0 / 0.5);
+}
+
+// Tema oscuro: preferencia del sistema salvo que el usuario fije "light"; o forzado con data-theme.
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    @include dark-tokens;
+  }
+}
+:root[data-theme='dark'] {
+  @include dark-tokens;
+}
+
+// Superficies que imitan papel o tarjetas de color fijo (hojas imprimibles, stickers,
+// carnet, vista previa de WhatsApp): siempre con la paleta clara, en cualquier tema.
+.ui-light-surface {
+  @include light-tokens;
+  // El branding no aplica fondo de cabecera aquí; los textos siguen la paleta clara.
+  color: var(--color-text-strong);
+}

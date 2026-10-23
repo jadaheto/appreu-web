@@ -1,0 +1,129 @@
+<div class="page-header">
+  <div>
+    <h1>Permisos y licencias</h1>
+    <p class="page-header__subtitle">
+      Solicitudes de los empleados; la API calcula los días y su efecto en la nómina.
+    </p>
+  </div>
+  <button ui-button variant="primary" icon="plus" (click)="openCreate()">Registrar permiso</button>
+</div>
+
+<app-section-nav [links]="links" ariaLabel="Secciones de Capital Humano" />
+
+<ui-filter-bar [showClear]="hasFilters()" (apply)="applyFilters()" (clear)="clearFilters()">
+  <ui-select
+    [formControl]="filterForm.controls.status"
+    [options]="statusOptions"
+    placeholder="Todos los estados"
+    ariaLabel="Estado"
+  />
+  <ui-select
+    [formControl]="filterForm.controls.employeeId"
+    [options]="employeeList()"
+    placeholder="Todos los empleados"
+    ariaLabel="Empleado"
+  />
+  <ui-date-range [formControl]="filterForm.controls.range" />
+</ui-filter-bar>
+
+@if (result.error()) {
+  <ui-alert
+    tone="error"
+    title="No se pudieron cargar los permisos"
+    style="margin-bottom: var(--space-4)"
+  >
+    {{ apiMessage(result.error()) }}
+  </ui-alert>
+}
+
+<ui-data-table
+  caption="Solicitudes de permiso"
+  [columns]="columns"
+  [rows]="rows()"
+  [loading]="result.isLoading()"
+  [actions]="actions"
+  emptyIcon="calendar"
+  emptyTitle="No hay solicitudes"
+  emptyMessage="No hay permisos con los filtros seleccionados."
+  (action)="onAction($event)"
+>
+  <ng-template uiCell="leaveType" let-row>
+    <div>{{ typeLabels[row.leaveType] }}</div>
+    <div class="text-muted" style="font-size: var(--text-xs)">
+      {{ treatmentLabels[row.payTreatment] }}
+    </div>
+  </ng-template>
+  <ng-template uiCell="reason" let-row>
+    <span [attr.title]="row.reason">{{
+      row.reason.length > 60 ? row.reason.slice(0, 60) + '…' : row.reason
+    }}</span>
+    @if (row.decisionNote) {
+      <div class="text-muted" style="font-size: var(--text-xs)">Nota: {{ row.decisionNote }}</div>
+    }
+  </ng-template>
+  <ng-template uiCell="displayStatus" let-row>
+    <app-hr-status-badge kind="leave" [status]="row.displayStatus" />
+  </ng-template>
+  <ui-pagination
+    uiTableFooter
+    [page]="filters().page"
+    [pageSize]="filters().pageSize"
+    [total]="total()"
+    (pageChange)="changePage($event)"
+  />
+</ui-data-table>
+
+<ui-modal
+  [(open)]="createOpen"
+  title="Registrar permiso"
+  description="En nombre de un empleado activo."
+>
+  @if (createError()) {
+    <ui-alert tone="error" style="display: block; margin-bottom: var(--space-4)">{{
+      createError()
+    }}</ui-alert>
+  }
+  <app-leave-request-form
+    [employeeOptions]="employeeList()"
+    [busy]="creating()"
+    submitLabel="Registrar"
+    (submitted)="create($event)"
+  >
+    <button ui-button type="button" (click)="createOpen.set(false)">Cancelar</button>
+  </app-leave-request-form>
+</ui-modal>
+
+<ui-modal
+  [(open)]="decisionOpen"
+  [title]="decision()?.kind === 'approve' ? 'Aprobar permiso' : 'Rechazar permiso'"
+  [description]="
+    (decision()?.leave?.employeeName ?? '') +
+    ' · ' +
+    (decision() ? typeLabels[decision()!.leave.leaveType] : '')
+  "
+  size="sm"
+>
+  <form id="decision-form" [formGroup]="decisionForm" (ngSubmit)="decide()" class="stack">
+    @if (decisionError()) {
+      <ui-alert tone="error">{{ decisionError() }}</ui-alert>
+    }
+    <ui-form-field
+      [label]="decision()?.kind === 'approve' ? 'Nota (opcional)' : 'Motivo del rechazo'"
+      [required]="decision()?.kind === 'reject'"
+    >
+      <ui-textarea formControlName="text" [rows]="3" [maxlength]="255" />
+    </ui-form-field>
+  </form>
+  <ng-container uiModalFooter>
+    <button ui-button type="button" (click)="decisionOpen.set(false)">Volver</button>
+    <button
+      ui-button
+      type="submit"
+      form="decision-form"
+      [variant]="decision()?.kind === 'approve' ? 'success' : 'danger'"
+      [loading]="deciding()"
+    >
+      {{ decision()?.kind === 'approve' ? 'Aprobar' : 'Rechazar' }}
+    </button>
+  </ng-container>
+</ui-modal>

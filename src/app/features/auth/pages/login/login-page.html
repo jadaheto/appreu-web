@@ -1,0 +1,60 @@
+<ui-auth-layout title="Iniciar Sesión">
+  <form [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    @if (expired() && !error()) {
+      <ui-alert tone="warning">Tu sesión expiró. Inicia sesión de nuevo para continuar.</ui-alert>
+    }
+    @if (error()) {
+      <ui-alert tone="error" dismissible (dismissed)="error.set(null)">{{ error() }}</ui-alert>
+    }
+
+    @if (showTenantField()) {
+      <ui-form-field
+        label="Código del colegio"
+        hint="Te lo entrega la institución (ej. colegio-san-jose)."
+        required
+        [errorMessages]="tenantMessages"
+      >
+        <ui-input
+          formControlName="tenant"
+          icon="building"
+          placeholder="mi-colegio"
+          autocomplete="organization"
+          mono
+        />
+      </ui-form-field>
+    } @else if (tenant.slug()) {
+      <div class="tenant">
+        <span
+          >Colegio: <strong>{{ tenant.slug() }}</strong></span
+        >
+        @if (!tenant.isLocked()) {
+          <button type="button" class="change" (click)="changeTenant()">Cambiar</button>
+        }
+      </div>
+    }
+
+    <ui-form-field label="Correo Electrónico" required>
+      <ui-input
+        formControlName="email"
+        type="email"
+        icon="envelope"
+        placeholder="usuario@apreu.co"
+        autocomplete="username"
+      />
+    </ui-form-field>
+
+    <ui-form-field label="Contraseña" required>
+      <ui-input
+        formControlName="password"
+        type="password"
+        icon="lock-closed"
+        placeholder="••••••••"
+        autocomplete="current-password"
+      />
+    </ui-form-field>
+
+    <button ui-button type="submit" variant="primary" size="lg" block [loading]="loading()">
+      Iniciar Sesión
+    </button>
+  </form>
+</ui-auth-layout>

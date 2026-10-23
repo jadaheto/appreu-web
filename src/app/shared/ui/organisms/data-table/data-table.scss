@@ -1,0 +1,121 @@
+:host {
+  display: block;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+.scroll {
+  position: relative;
+  overflow-x: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+th {
+  background: var(--color-surface-2);
+  color: var(--color-text);
+  font-weight: 600;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--color-border);
+  white-space: nowrap;
+  text-align: left;
+}
+td {
+  padding: 0.75rem 1rem;
+  font-size: var(--text-sm);
+  color: var(--color-text);
+  border-bottom: 1px solid var(--color-border-soft);
+  vertical-align: middle;
+}
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+tbody tr:not(.state):hover {
+  background: var(--color-surface-hover);
+}
+tr.selected {
+  background: var(--color-primary-soft);
+}
+tr.clickable {
+  cursor: pointer;
+}
+tr.is-muted {
+  opacity: 0.5;
+}
+.mono {
+  font-family: var(--font-mono);
+}
+.align-center {
+  text-align: center;
+}
+.align-end {
+  text-align: right;
+}
+.col-select {
+  width: 2.5rem;
+}
+.col-actions {
+  width: 1%;
+  white-space: nowrap;
+}
+.actions {
+  display: inline-flex;
+  gap: 0.25rem;
+}
+.actions .danger:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-bg);
+}
+.sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+.sort .idle {
+  opacity: 0.35;
+}
+.state td {
+  text-align: center;
+  padding: 1.5rem;
+}
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in srgb, var(--color-surface) 60%, transparent);
+}
+.footer:not(:empty) {
+  padding: 0.75rem 1rem;
+  border-top: 1px solid var(--color-border-soft);
+}
+@media (max-width: 639px) {
+  .hide-sm {
+    display: none;
+  }
+}
+@media (max-width: 767px) {
+  .hide-md {
+    display: none;
+  }
+}
+@media (max-width: 1023px) {
+  .hide-lg {
+    display: none;
+  }
+}

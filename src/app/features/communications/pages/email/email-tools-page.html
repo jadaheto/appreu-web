@@ -1,0 +1,87 @@
+<a ui-button variant="ghost" size="sm" icon="arrow-left" routerLink=".." class="back"
+  >Volver a correos</a
+>
+<div class="page-header">
+  <div>
+    <h1>Herramientas de correo</h1>
+    <p class="page-header__subtitle">
+      Verifica la cuenta SMTP y personaliza las imágenes del correo de facturas. Las credenciales se
+      editan en Configuración.
+    </p>
+  </div>
+</div>
+
+<div class="grid grid--2">
+  <section class="ui-card">
+    <h2 class="ui-card__title">Prueba de conexión SMTP</h2>
+    <p class="text-muted mb">
+      Se envía un correo de prueba a tu propia dirección con la cuenta seleccionada.
+    </p>
+    <ui-form-field label="Cuenta">
+      <ui-select [options]="profiles" [placeholder]="null" [(ngModel)]="profile" />
+    </ui-form-field>
+    <div class="actions-row">
+      <button
+        ui-button
+        variant="primary"
+        icon="envelope"
+        [loading]="testing()"
+        (click)="runSmtpTest()"
+      >
+        Enviar correo de prueba
+      </button>
+    </div>
+    @if (testResult(); as r) {
+      <ui-alert tone="success" title="Conexión exitosa" class="sub">
+        Correo enviado a <strong>{{ r.to }}</strong> vía
+        <span class="font-mono">{{ r.host }}:{{ r.port }}</span> ({{ r.security }}).
+      </ui-alert>
+    }
+    @if (testError(); as e) {
+      <ui-alert tone="error" title="La prueba falló" class="sub">{{ e }}</ui-alert>
+    }
+  </section>
+
+  <section class="ui-card">
+    <h2 class="ui-card__title">Imágenes del correo de facturas</h2>
+    <div class="grid grid--2">
+      @for (slot of slots; track slot.kind) {
+        <div class="slot">
+          <strong>{{ slot.title }}</strong>
+          <span class="muted-note">{{ slot.description }}</span>
+          <div class="thumb">
+            @if (previews()[slot.kind]; as src) {
+              <img [src]="src" [alt]="slot.title" />
+            } @else {
+              <span>Sin cambios en esta sesión</span>
+            }
+          </div>
+          <button
+            ui-button
+            type="button"
+            icon="download"
+            [loading]="uploading() === slot.kind"
+            [disabled]="uploading() !== null"
+            (click)="file.click()"
+          >
+            Subir imagen
+          </button>
+          <input
+            #file
+            class="sr-only"
+            tabindex="-1"
+            type="file"
+            [accept]="accept"
+            [disabled]="uploading() !== null"
+            [attr.aria-label]="'Subir ' + slot.title"
+            (change)="upload(slot.kind, file)"
+          />
+          @if (imageErrors()[slot.kind]; as err) {
+            <p class="danger muted-note" role="alert">{{ err }}</p>
+          }
+        </div>
+      }
+    </div>
+    <p class="muted-note sub">PNG, JPG, GIF o WebP de máximo 2 MB.</p>
+  </section>
+</div>
